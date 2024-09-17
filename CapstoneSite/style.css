@@ -1,0 +1,21 @@
+.header {
+    padding: 20px;
+}
+
+.logo-title-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; 
+}
+
+.logo { 
+    width: 50px; 
+    height: auto; 
+}
+
+.title {
+    font-size: 2rem; 
+    margin-left: 20px; 
+    text-align: center; 
+    flex-grow: 1; 
+}
