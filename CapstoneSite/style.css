@@ -1,11 +1,10 @@
 .header {
-    padding: 20px;
+    padding: 24px;
 }
 
 .logo-title-container {
     display: flex;
-    align-items: center;
-    justify-content: space-between; 
+    align-items: center; 
 }
 
 .logo { 
@@ -13,9 +12,6 @@
     height: auto; 
 }
 
-.title {
-    font-size: 2rem; 
-    margin-left: 20px; 
-    text-align: center; 
-    flex-grow: 1; 
+.body {
+   background-color: lightblue;
 }
