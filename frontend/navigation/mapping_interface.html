@@ -15,6 +15,7 @@
         <div class="max-w-3xl mx-auto mt-10 p-6 bg-white shadow-lg rounded-xl">
             <h2 class="text-2xl font-bold mb-4 text-center">Mapping Interface</h2>
 
+            <!--this is the search bar where the user can search for existing clients-->
             <div class="mb-6">
                 <label class="block mb-2 text-blue-800 font-medium">Search for an Individual</label>
                 <div class="flex space-x-2">
@@ -22,6 +23,7 @@
                     <button id="searching" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Search</button>
                 </div>
             </div>
+            <!--this is where the navigator would fill in a new client's information and should autofill if client already exists-->
             <form id="locationForm" class="space-y-3 mb-6">
                 <input type="text" id="name" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400" placeholder="Client Name" required>
                 <input type="number" id="age" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400" placeholder="Age" required>
@@ -30,11 +32,14 @@
                 <!--Might need to get rid of this button, not necessary-->
                 <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Place Marker</button>
             </form>
+            <!-- actual map -->
             <div id="map" class="rounded-lg shadow-md"></div>
+            
             <div class="flex justify-center mt-6">
                 <button onclick="clearMarkers()" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">Clear Markers</button>
             </div>
         </div>
+        <!--to prevent any errors on navigator's part, this will ask them if they truly want to erase the client's data when the clear button is hit-->
         <div id="clearConfirmation" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center hidden">
             <div class="bg-white p-6 rounded-lg shadow-lg">
                 <h2 class="text-xl mb-4">Are you sure?</h2>
@@ -45,6 +50,7 @@
             </div>
         </div>
         <script>
+            // sets up map
             let map = L.map('map').setView([32.2226, -110.9747], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
@@ -53,6 +59,7 @@
             let placedMarker = false;
             let clients = JSON.parse(localStorage.getItem('clients'));
 
+            // this is some fake user data to test the functionality
             const fakeData = {
             "Bob McBobbison": { age: 25, gender: "M", situation: "unemployed", coordinates: []},
             "Ur Mom": { age: 56, gender: "F", situation: "homeless", coordinates: []},
@@ -61,11 +68,12 @@
             "Michael Horston": { age: 65, gender:"M", situation: "substance abuse", coordinates:[]}
             };
 
+            // when page refreshes this should automatically put the fake data in localStorage
             if(!clients){
                 clients = fakeData;
                 localStorage.setItem('clients', JSON.stringify(clients));
             }
-
+            // this portion deals with the searching of clients, if found, will retrieve
             document.getElementById('searching').addEventListener('click', function() {
                 const searchedName = document.getElementById('searchInput').value.trim();
 
@@ -86,8 +94,6 @@
                     document.getElementById('gender').value = client.gender;
                     document.getElementById('situation').value = client.situation;
 
-                   
-
                     let coordinates = [];
 
                     client.coordinates.forEach(markerBlob => {
@@ -107,6 +113,7 @@
             }
             // // save function
             function saveMarker(name, age, gender, situation, lat, lng){
+                // will save date and time of when this marker is saved
                 const time = new Date().toISOString();
                 if(!clients[name]){
                     clients[name] = {
@@ -120,9 +127,8 @@
                 clients[name].coordinates.push({lat: lat, lng: lng, timestamp: time});
                 localStorage.setItem('clients', JSON.stringify(clients));
             }
-            
-
-            // tell user to place markers on map
+    
+            // tell user to place markers on map (WILL PROBABLY DELETE IF BUTTON IS NOT NEEDED)
             document.getElementById('locationForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 placedMarker = true;
@@ -130,7 +136,7 @@
             });
             // map function for placing markers
             map.on('click', function(event) {
-                if (!placedMarker) return;
+                // parse data
                 const name = document.getElementById('name').value;
                 const age = document.getElementById('age').value;
                 const gender = document.getElementById('gender').value;
@@ -140,19 +146,23 @@
                 const lng = event.latlng.lng;
                 const time = new Date().toISOString();
 
+                // initialize markers
                 const marker = L.marker([lat, lng]).addTo(map);
                 marker.bindPopup(`<strong>${name}</strong><br>${age}, ${gender}<br>${situation}<br><strong>Timestamp: </strong>${new Date(time).toLocaleString()}<br>`).openPopup();
 
                 saveMarker(name, age, gender, situation, lat, lng);
                 const updatedMarker = clients[name];
 
+                // this section updates current coords when new marker is put on the map and draws the lines
                 let updatedCoordinates = updatedMarker.coordinates.map(newMap => [newMap.lat, newMap.lng]);
-                L.polyline(updatedCoordinates, { color: 'red' }).addTo(map);
+                L.polyline(updatedCoordinates, { color: 'blue' }).addTo(map);
+
+                // when marker is saved, reset map
                 placedMarker = false;
                 document.getElementById('locationForm').reset();
             });
 
-            // show confirmation and if clicked clear then clear
+            // show confirmation and if clicked clear button then clear
             function clearMarkers() {
                 document.getElementById('clearConfirmation').classList.remove('hidden');
             }
@@ -160,9 +170,8 @@
             function closeConfirmation() {
                 document.getElementById('clearConfirmation').classList.add('hidden');
             }
-            // confirmClear function
+            // confirmClear function => might adjust to this so that individual markers may be removed if needed
             function confirmingClear(){
-
                 map.eachLayer(function(layer){
                     if(layer instanceof L.Marker){
                         map.removeLayer(layer);
@@ -173,9 +182,6 @@
                 clients = {};
                 closeConfirmation();
             }
-
-
         </script>
-        
     </body>
 </html>
