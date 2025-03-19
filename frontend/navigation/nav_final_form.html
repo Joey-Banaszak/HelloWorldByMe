@@ -9,6 +9,8 @@
     <body class="bg-gray-800 text-gray-800">
         <div class="max-w-3xl mx-auto mt-10 p-6 bg-white shadow-md rounded-lg">
             <h2 class="text-2xl font-bold mb-4 text-center">Navigator Form</h2>
+
+            <!--search bar for existing clients-->
             <div id="widget" class="space-y-6">
                 <h2 class="text-lg font-medium text-blue-800 mb-2">Search for an Individual</h2>
                 <div class="flex items-center space-x-2">
@@ -16,10 +18,12 @@
                     <button id="search" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Search</button>
                 </div>
             </div>
+            <!--if user is not found, then the information section will pop up-->
             <div id="results" class="mb-4 text-gray-400"></div>
             <div id="formResults" class="hidden">
                 <h2 class="text-lg font-medium mb-2">Enter Information</h2>
                 <div id="widget" class="space-y-6">
+                    <!--widget style input fields-->
                     <div class="bg-gray-200 rounded-lg p-4 shadow-md">
                         <div class="flex justify-between items-center mb-2">
                             <input type="text" class="widget-title text-lg font-semibold w-full bg-transparent border-b border-gray-400 focus:outline-none" value="Name" />
@@ -54,7 +58,6 @@
                             <label><input type="checkbox" name="services" value="substance"> Substance Recovery</label><br>
                             <label><input type="checkbox" name="services" value="housing"> Housing</label>
                     </div>
-                   
                     <button id="submitBtn" class="w-full bg-green-600 text-white p-2 rounded-md hover:bg-green-700">Submit</button>
                 </div>
             </div>
@@ -71,6 +74,7 @@
                     //c onst info = document.getElementById('notes').value.trim();
 
                     const services = [];
+                    // all services that were checked will be pushed to services in JSON field
                     document.querySelectorAll('input[name="services"]:checked').forEach(service => {
                         services.push(service.value);
                     });
@@ -84,7 +88,9 @@
                         notes : []
                     };
 
+                    // assigns data to a person
                     fakeData[name] = personData;
+                    // stores new "person" in local storage (will eventually be in our database)
                     localStorage.setItem(name, JSON.stringify(fakeData[name]));
                     alert('Information saved successfully!');
 
@@ -116,6 +122,7 @@
                 if(fakeData[searching]){
                     // display the existing data
                     const person = fakeData[searching];
+                    // added the note section so that navigators could add additional info about a person if needed
                     let note = '';
                     if(person.notes && person.notes.length > 0){
                         note = '<h3 class="font-bold mt-4">Additional Notes</h3><ul>';
@@ -124,6 +131,7 @@
                         note += `<li>${note.date}: ${note.text}</li>`;
                     });
                     note += '</ul>';
+                    // updates notes to most recent one
                     results.innerHTML = `<p><strong>Name:</strong> ${searching}</p> <p><strong> Age:</strong> ${person.age}</p><p><strong>Gender:</strong> ${person.gender}</p>
                                                                 <p><strong>Services Needed:</strong> ${person.services.join(", ")}</p>
                                                                     <p><strong>Current Situation:</strong> ${person.situation} 
@@ -138,7 +146,7 @@
             </div>`;
                     
                     form.classList.add('hidden');
-
+                    // this portion just adds new notes to the localStorage
                     document.getElementById('addNoteBtn').addEventListener('click', () => {
                         const noteText = document.getElementById('notes').value.trim();
                         if(noteText){
@@ -152,14 +160,14 @@
                     });
                 }
                 else {
-                    // display form
+                    // if user is not found  
                     results.innerHTML="<p class='text-red-500'>Person not found. Please enter information below.</p>";
                     form.classList.remove('hidden');
                 }
-
                 
             });
 
+            // clear function for when a new person is encountered
             function clearForm() {
                 document.getElementById('name').value = '';
                 document.getElementById('age').value = '';
@@ -171,8 +179,6 @@
                     service.checked = false;
                 });
             }
-
-
         </script>
     </body>
 </html> 
