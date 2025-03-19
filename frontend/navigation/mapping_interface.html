@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>HelloWorldByMe</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <style>
+            #map { height: 500px; width: 100%; margin-top: 1rem; }
+        </style>
+    </head>
+    <body class="bg-gray-800 text-gray-800">
+        <div class="max-w-3xl mx-auto mt-10 p-6 bg-white shadow-lg rounded-xl">
+            <h2 class="text-2xl font-bold mb-4 text-center">Mapping Interface</h2>
+
+            <div class="mb-6">
+                <label class="block mb-2 text-blue-800 font-medium">Search for an Individual</label>
+                <div class="flex space-x-2">
+                    <input id="searchInput" type="text" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400" placeholder="Enter Name">
+                    <button id="searching" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Search</button>
+                </div>
+            </div>
+            <form id="locationForm" class="space-y-3 mb-6">
+                <input type="text" id="name" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400" placeholder="Client Name" required>
+                <input type="number" id="age" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400" placeholder="Age" required>
+                <input type="text" id="gender" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400" placeholder="Gender (M, F, N/A)" required>
+                <input type="text" id="situation" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400" placeholder="Describe Client's Current Situation" required>
+                <!--Might need to get rid of this button, not necessary-->
+                <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Place Marker</button>
+            </form>
+            <div id="map" class="rounded-lg shadow-md"></div>
+            <div class="flex justify-center mt-6">
+                <button onclick="clearMarkers()" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">Clear Markers</button>
+            </div>
+        </div>
+        <div id="clearConfirmation" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl mb-4">Are you sure?</h2>
+                <div class="flex justify-end space-x-4">
+                    <button onclick="confirmingClear()" class="bg-red-500 text-white px-4 py-2 rounded-md">Yes</button>
+                    <button onclick="closeConfirmation()" class="bg-gray-300 px-4 py-2 rounded-md">Cancel</button>
+                </div>
+            </div>
+        </div>
+        <script>
+            let map = L.map('map').setView([32.2226, -110.9747], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+            }).addTo(map);
+
+            let placedMarker = false;
+            let clients = JSON.parse(localStorage.getItem('clients'));
+
+            const fakeData = {
+            "Bob McBobbison": { age: 25, gender: "M", situation: "unemployed", coordinates: []},
+            "Ur Mom": { age: 56, gender: "F", situation: "homeless", coordinates: []},
+            "Jesse Richardson": { age: 32, gender: "N/A", situation: "bipolar disorder", coordinates: []},
+            "Susan": { age: 45, gender: "F", situation: "single mother", coordinates: []},
+            "Michael Horston": { age: 65, gender:"M", situation: "substance abuse", coordinates:[]}
+            };
+
+            if(!clients){
+                clients = fakeData;
+                localStorage.setItem('clients', JSON.stringify(clients));
+            }
+
+            document.getElementById('searching').addEventListener('click', function() {
+                const searchedName = document.getElementById('searchInput').value.trim();
+
+                if(clients[searchedName]){
+                    loadClient(searchedName);
+
+                } else {
+                    alert("Client not found.");
+                }
+            });
+
+            // load client function
+            function loadClient(person){
+                if(clients[person]){
+                    const client = clients[person];
+                    document.getElementById('name').value = person;
+                    document.getElementById('age').value = client.age;
+                    document.getElementById('gender').value = client.gender;
+                    document.getElementById('situation').value = client.situation;
+
+                   
+
+                    let coordinates = [];
+
+                    client.coordinates.forEach(markerBlob => {
+                        const date = new Date(markerBlob.timestamp);
+                        const existing = L.marker([markerBlob.lat, markerBlob.lng]).addTo(map);
+                        existing.bindPopup(`<strong>${date}<br></strong><strong>${person}</strong><br>${client.age}, ${client.gender}<br>${client.situation}`);
+                        coordinates.push([markerBlob.lat, markerBlob.lng]);
+                    });
+
+                    if(coordinates.length > 1){
+                        const line = L.polyline(coordinates, { color: 'blue'}).addTo(map);
+                        map.fitBounds(line.getBounds());
+                    }
+                } else {
+                    alert("ERROR: loadClient => Client not found.");
+                }
+            }
+            // // save function
+            function saveMarker(name, age, gender, situation, lat, lng){
+                const time = new Date().toISOString();
+                if(!clients[name]){
+                    clients[name] = {
+                        age: age,
+                        gender: gender,
+                        situation: situation,
+                        coordinates: []
+                    };
+                }
+
+                clients[name].coordinates.push({lat: lat, lng: lng, timestamp: time});
+                localStorage.setItem('clients', JSON.stringify(clients));
+            }
+            
+
+            // tell user to place markers on map
+            document.getElementById('locationForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                placedMarker = true;
+                alert('Click on map to place the marker.');
+            });
+            // map function for placing markers
+            map.on('click', function(event) {
+                if (!placedMarker) return;
+                const name = document.getElementById('name').value;
+                const age = document.getElementById('age').value;
+                const gender = document.getElementById('gender').value;
+                const situation = document.getElementById('situation').value;
+
+                const lat = event.latlng.lat;
+                const lng = event.latlng.lng;
+                const time = new Date().toISOString();
+
+                const marker = L.marker([lat, lng]).addTo(map);
+                marker.bindPopup(`<strong>${name}</strong><br>${age}, ${gender}<br>${situation}<br><strong>Timestamp: </strong>${new Date(time).toLocaleString()}<br>`).openPopup();
+
+                saveMarker(name, age, gender, situation, lat, lng);
+                const updatedMarker = clients[name];
+
+                let updatedCoordinates = updatedMarker.coordinates.map(newMap => [newMap.lat, newMap.lng]);
+                L.polyline(updatedCoordinates, { color: 'red' }).addTo(map);
+                placedMarker = false;
+                document.getElementById('locationForm').reset();
+            });
+
+            // show confirmation and if clicked clear then clear
+            function clearMarkers() {
+                document.getElementById('clearConfirmation').classList.remove('hidden');
+            }
+
+            function closeConfirmation() {
+                document.getElementById('clearConfirmation').classList.add('hidden');
+            }
+            // confirmClear function
+            function confirmingClear(){
+
+                map.eachLayer(function(layer){
+                    if(layer instanceof L.Marker){
+                        map.removeLayer(layer);
+                    }
+                });
+
+                localStorage.removeItem('clients');
+                clients = {};
+                closeConfirmation();
+            }
+
+
+        </script>
+        
+    </body>
+</html>
