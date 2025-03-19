@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>HelloWorldByMe</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-800 text-gray-800">
+        <div class="max-w-3xl mx-auto mt-10 p-6 bg-white shadow-md rounded-lg">
+            <h2 class="text-2xl font-bold mb-4 text-center">Navigator Form</h2>
+            <div id="widget" class="space-y-6">
+                <h2 class="text-lg font-medium text-blue-800 mb-2">Search for an Individual</h2>
+                <div class="flex items-center space-x-2">
+                    <input id="searchInput" type="text" placeholder="Enter Name" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400">
+                    <button id="search" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Search</button>
+                </div>
+            </div>
+            <div id="results" class="mb-4 text-gray-400"></div>
+            <div id="formResults" class="hidden">
+                <h2 class="text-lg font-medium mb-2">Enter Information</h2>
+                <div id="widget" class="space-y-6">
+                    <div class="bg-gray-200 rounded-lg p-4 shadow-md">
+                        <div class="flex justify-between items-center mb-2">
+                            <input type="text" class="widget-title text-lg font-semibold w-full bg-transparent border-b border-gray-400 focus:outline-none" value="Name" />
+                        </div>
+                            <input type="text" id="name" placeholder="Full Name" class="w-full p-2 border border-gray-300 rounded-lg mb-2">
+                    </div>
+                    <div class="bg-gray-200 rounded-lg p-4 shadow-md">
+                        <div class="flex justify-between items-center mb-2">
+                            <input type="text" class="widget-title text-lg font-semibold w-full bg-transparent border-b border-gray-400 focus:outline-none" value="Age"/>
+                        </div>
+                        <input id="age" type="number" placeholder="Age" class="w-full p-2 border border-gray-300 rounded-md mb-2">
+                    </div>
+                    <div class="bg-gray-200 rounded-lg p-4 shadow-md">
+                        <div class="flex justify-between items-center mb-2">
+                            <input type="text" class="widget-title text-lg font-semibold w-full bg-transparent border-b border-gray-400 focus:outline-none" value="Gender"/>
+                        </div>
+                        <input id="gender" type="text" placeholder="Male, Female, N/A" class="w-full p-2 border border-gray-300 rounded-md mb-2">
+                    </div>
+                    <div class="bg-gray-200 rounded-lg p-4 shadow-md">
+                        <div class="flex justify-between items-center mb-2">
+                            <input type="text" class="widget-title text-lg font-semibold w-full bg-transparent border-b border-gray-400 focus:outline-none" value="Current Situation"/>
+                        </div>
+                        <textarea id="situation" placeholder="Current Situation" class="w-full p-2 border border-gray-300 rounded-md mb-2"></textarea>
+                    </div>
+                    <div class="bg-gray-200 rounded-lg p-4 shadow-md">
+                        <div class="flex justify-between items-center mb-2">
+                            <input id="services" type="text" class="widget-title text-lg font-semibold w-full bg-transparent border-b border-gray-400 focus:outline-none" value="Services Needed"/>
+                        </div>
+                        <h2>Services Needed</h2>
+                            <label><input type="checkbox" name="services" value="food"> Food</label><br>                       
+                            <label><input type="checkbox" name="services" value="mental"> Mental Health Services</label><br>
+                            <label><input type="checkbox" name="services" value="substance"> Substance Recovery</label><br>
+                            <label><input type="checkbox" name="services" value="housing"> Housing</label>
+                    </div>
+                   
+                    <button id="submitBtn" class="w-full bg-green-600 text-white p-2 rounded-md hover:bg-green-700">Submit</button>
+                </div>
+            </div>
+        </div>
+        <script>
+
+            // when submit button is clicked, information is stored on local storage
+            document.addEventListener('click', function(e){
+                if(e.target && e.target.id == 'submitBtn'){
+                    const name = document.getElementById('name').value.trim();
+                    const age = document.getElementById('age').value.trim();
+                    const gender = document.getElementById('gender').value.trim();
+                    const situation = document.getElementById('situation').value.trim();
+                    //c onst info = document.getElementById('notes').value.trim();
+
+                    const services = [];
+                    document.querySelectorAll('input[name="services"]:checked').forEach(service => {
+                        services.push(service.value);
+                    });
+
+                    const personData = {
+                        name: name,
+                        age: age,
+                        gender: gender,
+                        situation: situation,
+                        services: services,
+                        notes : []
+                    };
+
+                    fakeData[name] = personData;
+                    localStorage.setItem(name, JSON.stringify(fakeData[name]));
+                    alert('Information saved successfully!');
+
+                    document.getElementById('formResults').classList.add('hidden');
+                    document.getElementById('results').innerHTML = `<p class='text-green-500'>Information for ${name} saved!</p>`;
+                }
+                
+            });
+            // fake cache
+            const fakeData = {
+                "Bob McBobbison": { age: 25, gender: "M", situation: "unemployed", services: ["food", "substance", "housing"], notes: []},
+                "Ur Mom": { age: 56, gender: "F", situation: "homeless", services: ["mental", "housing"], notes: []},
+                "Jesse Richardson": { age: 32, gender: "N/A", situation: "bipolar disorder", services:["mental", "substance"], notes: []},
+                "Susan": { age: 45, gender: "F", situation: "single mother", services: ["food", "housing"], notes: []},
+                "Michael Horston": { age: 65, gender:"M", situation: "substance abuse", services: ["substance"], notes:[]}
+            };
+            // searching function
+            document.getElementById('search').addEventListener('click', () => {
+                // searching info
+                const searching = document.getElementById('searchInput').value.trim();
+                // results
+                const results = document.getElementById('results');
+                // form 
+                const form = document.getElementById('formResults');
+
+                clearForm();
+
+                // if person exists
+                if(fakeData[searching]){
+                    // display the existing data
+                    const person = fakeData[searching];
+                    let note = '';
+                    if(person.notes && person.notes.length > 0){
+                        note = '<h3 class="font-bold mt-4">Additional Notes</h3><ul>';
+                    }
+                    person.notes.forEach(note => {
+                        note += `<li>${note.date}: ${note.text}</li>`;
+                    });
+                    note += '</ul>';
+                    results.innerHTML = `<p><strong>Name:</strong> ${searching}</p> <p><strong> Age:</strong> ${person.age}</p><p><strong>Gender:</strong> ${person.gender}</p>
+                                                                <p><strong>Services Needed:</strong> ${person.services.join(", ")}</p>
+                                                                    <p><strong>Current Situation:</strong> ${person.situation} 
+                                                                        <p><strong>Date/Time: </strong> ${person.notes[person.notes.length - 2]} <strong>Recent info: </strong>${person.notes[[person.notes.length - 1]]}</p><br>${note}\
+                                                                         <div class="bg-gray-200 rounded-lg p-4 shadow-md">
+                        <div class="flex justify-between items-center mb-2">
+                            <input type="text" class="widget-title text-lg font-bold w-full bg-transparent border-b border-gray-400 focus:outline-none" value="Additional Notes"/>
+                        </div>
+                        <textarea id="notes" placeholder="Additional Notes" class="w-full p-2 border border-gray-300 rounded-md mb-2"></textarea>
+                    </div>                    
+                    <button id="addNoteBtn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Add Note</button>
+            </div>`;
+                    
+                    form.classList.add('hidden');
+
+                    document.getElementById('addNoteBtn').addEventListener('click', () => {
+                        const noteText = document.getElementById('notes').value.trim();
+                        if(noteText){
+                            const date = new Date().toLocaleString();
+                            fakeData[searching].notes.push(date, noteText);
+                            localStorage.setItem(searching, JSON.stringify(fakeData[searching]));
+                            document.getElementById('notes').value = '';
+                            alert("Note added successfully!");
+                            document.getElementById('search').click();
+                        }
+                    });
+                }
+                else {
+                    // display form
+                    results.innerHTML="<p class='text-red-500'>Person not found. Please enter information below.</p>";
+                    form.classList.remove('hidden');
+                }
+
+                
+            });
+
+            function clearForm() {
+                document.getElementById('name').value = '';
+                document.getElementById('age').value = '';
+                document.getElementById('gender').value = '';
+                document.getElementById('situation').value = '';
+                
+                // Uncheck all services checkboxes
+                document.querySelectorAll('input[name="services"]').forEach(service => {
+                    service.checked = false;
+                });
+            }
+
+
+        </script>
+    </body>
+</html> 
