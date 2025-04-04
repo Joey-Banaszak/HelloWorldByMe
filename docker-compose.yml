@@ -2,10 +2,16 @@ version: '3.8'
 
 services:
   frontend:
+    
     build:
       context: ./frontend
     ports:
       - "3000:3000"  # Access frontend via http://localhost:3000
+    stdin_open: true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    working_dir: /app
     networks:
       - app_network
 
