@@ -11,6 +11,9 @@ import OrganizationHome from "./OrganizationHome";
 import AvailableOrganizations from "./AvailableOrganizations";
 import { useAuth } from "./AuthContext"; // ⬅️ new
 import "./styles.css";
+import NavigatorForm from "./NavForm";
+import ServiceMatch from "./ServiceMatch";
+import Mapping from "./Mapping";
 
 const App = () => {
   const { isAuthenticated } = useAuth(); // ⬅️ using global context now
@@ -46,6 +49,18 @@ const App = () => {
         <Route
           path="/people"
           element={isAuthenticated ? <Layout><People /></Layout> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/nav-form"
+          element={isAuthenticated ? <Layout><NavigatorForm /></Layout> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/service-match"
+          element={isAuthenticated ? <Layout><ServiceMatch /></Layout> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/mapping"
+          element={isAuthenticated ? <Layout><Mapping /></Layout> : <Navigate to="/login" />}
         />
       </Routes>
     </Router>

@@ -55,10 +55,17 @@ const Sidebar = () => {
         {pendingRequests > 0 && <span className="badge">{pendingRequests}</span>}
       </button>
       <button className="nav-item" onClick={() => navigate("/join-orgs")}>Join Organizations</button>
+
+      <h2>Navigation</h2>
+      <button className="nav-item" onClick={() => navigate("/nav-form")}>Navigation Form</button>
+      <button className="nav-item" onClick={() => navigate("/service-match")}>Service Matching</button>
+      <button className="nav-item" onClick={() => navigate("/mapping")}>Mapping</button>
+      <h2></h2>
       <button className="nav-item" onClick={() => {
         localStorage.clear();
         navigate("/login");
       }}>Log Out</button>
+      
     </aside>
   );
 };
