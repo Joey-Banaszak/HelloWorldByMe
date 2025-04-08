@@ -95,6 +95,36 @@ app.get("/api/auth/profile", async (req, res) => {
   }
 });
 
+app.get("/messages/history", async (req, res) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) return res.status(401).json({ error: "Unauthorized" });
+  
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user_id = decoded.user_id;
+  
+      const other_user_id = req.query.with;
+      if (!other_user_id) {
+        return res.status(400).json({ error: "Missing 'with' query parameter" });
+      }
+  
+      const messagesQuery = await pool.query(
+        `
+        SELECT id, sender, receiver, content, timestamp
+        FROM messages
+        WHERE (sender = $1 AND receiver = $2)
+           OR (sender = $2 AND receiver = $1)
+        ORDER BY timestamp ASC
+        `,
+        [user_id, other_user_id]
+      );
+  
+      res.json({ messages: messagesQuery.rows || [] });
+    } catch (error) {
+      console.error("Message History Fetch Error:", error);
+      res.status(500).json({ messages: [] });
+    }
+  });  
 
 app.get("/messages/inbox", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];

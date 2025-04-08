@@ -13,6 +13,7 @@ const Messages = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [newMessage, setNewMessage] = useState("");
   const [error, setError] = useState("");
+  const [threads, setThreads] = useState([]);
 
   const token = localStorage.getItem("token");
   const userId = localStorage.getItem("user_id");
@@ -22,19 +23,51 @@ const Messages = () => {
       window.location.href = "/login";
       return;
     }
-
-    axios.get("/messages/inbox", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    .then(response => setInbox(response.data.messages || []))
-    .catch(error => console.error("Error fetching inbox messages:", error));
-
-    axios.get("/messages/sent", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    .then(response => setSentMessages(response.data.messages || []))
-    .catch(error => console.error("Error fetching sent messages:", error));
-  }, [token]);
+  
+    const fetchMessages = async () => {
+      try {
+        const inboxRes = await axios.get("/messages/inbox", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+  
+        const sentRes = await axios.get("/messages/sent", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+  
+        const inboxMsgs = inboxRes.data.messages || [];
+        const sentMsgs = sentRes.data.messages || [];
+  
+        const groupedThreads = {};
+  
+        // Group inbox messages by sender
+        inboxMsgs.forEach((msg) => {
+          const user = msg.sender;
+          if (!groupedThreads[user]) groupedThreads[user] = [];
+          groupedThreads[user].push({ ...msg, direction: "inbox" });
+        });
+  
+        // Group sent messages by receiver
+        sentMsgs.forEach((msg) => {
+          const user = msg.receiver;
+          if (!groupedThreads[user]) groupedThreads[user] = [];
+          groupedThreads[user].push({ ...msg, direction: "sent" });
+        });
+  
+        // Convert to array of threads
+        const threadList = Object.entries(groupedThreads).map(([userId, messages]) => ({
+          userId,
+          messages: messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)),
+          isOpen: false, // collapsed by default
+        }));
+  
+        setThreads(threadList);
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+      }
+    };
+  
+    fetchMessages();
+  }, [token]);  
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -131,43 +164,54 @@ const Messages = () => {
 
   return (
     <Layout>
-      <div className="messages-container">
-        <h2>Messages</h2>
+      {<div className="threads-container">
+  {threads.map((thread, index) => (
+    <div key={index} className="thread-block">
+      <div
+        className="thread-header"
+        onClick={() => {
+          const updated = [...threads];
+          updated[index].isOpen = !updated[index].isOpen;
+          setThreads(updated);
+        }}
+      >
+        <strong>Conversation with:</strong> {thread.userId} {" "}
+        <span style={{ fontSize: "0.8rem", color: "#555" }}>
+          ({thread.messages.length} message{thread.messages.length !== 1 ? "s" : ""})
+        </span>
+      </div>
 
-        <div className="messages-list">
-          {inbox.map((msg) => (
+      {thread.isOpen && (
+        <div className="thread-messages">
+          {thread.messages.map((msg) => (
             <div
-              key={msg.id}
-              className={`chat-bubble chat-left`}
-            >
-              <div>{msg.content}</div>
-              <div className="chat-meta">
-                From: {msg.sender} | {new Date(msg.timestamp).toLocaleString()}
-              </div>
-              <div className="chat-actions">
-                <button onClick={() => deleteMessage(msg.id)}>🗑️</button>
-                <button onClick={() => archiveMessage(msg.id)}>📥 Archive</button>
-                <button onClick={() => handleSelectMessage(msg)}>↩️ Reply</button>
-              </div>
+            key={msg.id}
+            className={`bubble-message ${msg.direction === "sent" ? "sent-bubble" : "received-bubble"}`}
+          >
+            <div className="bubble-meta">
+              {msg.direction === "sent" ? "To" : "From"}: {msg.direction === "sent" ? msg.receiver : msg.sender}
+              <span className="bubble-timestamp">
+                {new Date(msg.timestamp).toLocaleString()}
+              </span>
             </div>
-          ))}
-
-          {sentMessages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`chat-bubble chat-right`}
-            >
-              <div>{msg.content}</div>
-              <div className="chat-meta">
-                To: {msg.receiver} | {new Date(msg.timestamp).toLocaleString()}
-              </div>
-              <div className="chat-actions">
-                <button onClick={() => deleteMessage(msg.id)}>🗑️</button>
-              </div>
+            <div className="bubble-content">{msg.content}</div>
+            <div className="bubble-actions">
+              <button onClick={() => deleteMessage(msg.id)}>🗑️</button>
+              {msg.direction === "inbox" && (
+                <>
+                  <button onClick={() => archiveMessage(msg.id)}>📥 Archive</button>
+                  <button onClick={() => handleSelectMessage(msg)}>↩️ Reply</button>
+                </>
+              )}
             </div>
+          </div>
           ))}
         </div>
-      </div>
+      )}
+    </div>
+  ))}
+</div>
+}
 
       {selectedMessage && (
         <div className="message-action-container">
