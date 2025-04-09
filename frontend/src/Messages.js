@@ -311,6 +311,21 @@ const sendReply = async (receiverId) => {
             ))}
           </div>
         )}
+        <div className="comm-method-selector">
+        <label htmlFor="method">Method: </label>
+        <select
+            value="message"
+            onChange={(e) => {
+            if (e.target.value !== "message") {
+                alert(`Sorry, "${e.target.value}" is not currently supported.`);
+            }
+            }}
+        >
+            <option value="message">Message</option>
+            <option value="text">Text Message</option>
+            <option value="email">Email</option>
+        </select>
+        </div>
         <textarea
           placeholder="Type your message..."
           value={newMessage}
