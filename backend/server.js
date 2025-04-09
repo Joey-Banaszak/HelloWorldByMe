@@ -37,29 +37,43 @@ app.post("/api/auth/signup", async (req, res) => {
     );
 
     // Create user profile
-    await pool.query("INSERT INTO profiles (user_id, bio, organization) VALUES ($1, '', '')", [user_id]);
+    await pool.query(
+      "INSERT INTO profiles (user_id, bio, organization) VALUES ($1, '', '')",
+      [user_id]
+    );
 
     res.json({ success: true, message: "User registered successfully" });
   } catch (error) {
     console.error("Signup Error:", error);
-    res.status(500).json({ error: "Error registering user", details: error.message });
+    res
+      .status(500)
+      .json({ error: "Error registering user", details: error.message });
   }
 });
-
 
 app.post("/api/auth/login", async (req, res) => {
   const { user_id, password } = req.body;
 
   try {
-    const user = await pool.query("SELECT * FROM users WHERE user_id = $1", [user_id]);
+    const user = await pool.query("SELECT * FROM users WHERE user_id = $1", [
+      user_id,
+    ]);
 
-    if (user.rows.length === 0 || !(await bcrypt.compare(password, user.rows[0].password))) {
+    if (
+      user.rows.length === 0 ||
+      !(await bcrypt.compare(password, user.rows[0].password))
+    ) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const token = jwt.sign({ user_id: user.rows[0].user_id }, JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign({ user_id: user.rows[0].user_id }, JWT_SECRET, {
+      expiresIn: "1h",
+    });
 
-    await pool.query("INSERT INTO audit_logs (user_id, action) VALUES ($1, 'login')", [user_id]);
+    await pool.query(
+      "INSERT INTO audit_logs (user_id, action) VALUES ($1, 'login')",
+      [user_id]
+    );
 
     res.json({ success: true, token });
   } catch (error) {
@@ -67,7 +81,6 @@ app.post("/api/auth/login", async (req, res) => {
     res.status(500).json({ error: "Login failed" });
   }
 });
-
 
 app.get("/api/auth/profile", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -77,17 +90,24 @@ app.get("/api/auth/profile", async (req, res) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    const userQuery = await pool.query("SELECT user_id, name FROM users WHERE user_id = $1", [decoded.user_id]);
+    const userQuery = await pool.query(
+      "SELECT user_id, name FROM users WHERE user_id = $1",
+      [decoded.user_id]
+    );
 
-    if (userQuery.rows.length === 0) return res.status(404).json({ error: "User not found" });
+    if (userQuery.rows.length === 0)
+      return res.status(404).json({ error: "User not found" });
 
-    const profileQuery = await pool.query("SELECT bio, organization FROM profiles WHERE user_id = $1", [
-      decoded.user_id,
-    ]);
+    const profileQuery = await pool.query(
+      "SELECT bio, organization FROM profiles WHERE user_id = $1",
+      [decoded.user_id]
+    );
 
     res.json({
       user: userQuery.rows[0],
-      profile: profileQuery.rows.length ? profileQuery.rows[0] : { bio: "", organization: "" },
+      profile: profileQuery.rows.length
+        ? profileQuery.rows[0]
+        : { bio: "", organization: "" },
     });
   } catch (error) {
     console.error("Profile Fetch Error:", error);
@@ -95,6 +115,36 @@ app.get("/api/auth/profile", async (req, res) => {
   }
 });
 
+app.get("/messages/history", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ error: "Unauthorized" });
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user_id = decoded.user_id;
+
+    const other_user_id = req.query.with;
+    if (!other_user_id) {
+      return res.status(400).json({ error: "Missing 'with' query parameter" });
+    }
+
+    const messagesQuery = await pool.query(
+      `
+        SELECT id, sender, receiver, content, timestamp
+        FROM messages
+        WHERE (sender = $1 AND receiver = $2)
+           OR (sender = $2 AND receiver = $1)
+        ORDER BY timestamp ASC
+        `,
+      [user_id, other_user_id]
+    );
+
+    res.json({ messages: messagesQuery.rows || [] });
+  } catch (error) {
+    console.error("Message History Fetch Error:", error);
+    res.status(500).json({ messages: [] });
+  }
+});
 
 app.get("/messages/inbox", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -116,7 +166,6 @@ app.get("/messages/inbox", async (req, res) => {
     res.status(500).json({ messages: [] });
   }
 });
-
 
 app.get("/messages/sent", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -173,7 +222,9 @@ app.post("/messages", async (req, res) => {
   const { sender, receiver, content } = req.body;
 
   if (!sender || !receiver || !content) {
-    return res.status(400).json({ error: "sender, receiver, and content are required." });
+    return res
+      .status(400)
+      .json({ error: "sender, receiver, and content are required." });
   }
 
   try {
@@ -188,7 +239,6 @@ app.post("/messages", async (req, res) => {
     res.status(500).json({ error: "Error sending message" });
   }
 });
-
 
 app.delete("/api/messages/delete/:message_id", async (req, res) => {
   const { message_id } = req.params;
@@ -218,7 +268,6 @@ app.get("/api/users/search", async (req, res) => {
   }
 });
 
-
 app.post("/api/organizations", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Unauthorized" });
@@ -234,7 +283,6 @@ app.post("/api/organizations", async (req, res) => {
 
     const orgId = orgResult.rows[0].id;
 
-  
     await pool.query(
       "INSERT INTO organization_members (user_id, org_id, role) VALUES ($1, $2, 'admin')",
       [decoded.user_id, orgId]
@@ -266,15 +314,15 @@ app.get("/messages/unread-count", async (req, res) => {
 
 app.put("/api/messages/:id/read", async (req, res) => {
   try {
-    await pool.query("UPDATE messages SET is_read = TRUE WHERE id = $1", [req.params.id]);
+    await pool.query("UPDATE messages SET is_read = TRUE WHERE id = $1", [
+      req.params.id,
+    ]);
     res.json({ success: true });
   } catch (err) {
     console.error("Mark as read error:", err);
     res.status(500).json({ error: "Failed to update message" });
   }
 });
-
-
 
 app.get("/api/organizations", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -298,7 +346,6 @@ app.get("/api/organizations", async (req, res) => {
   }
 });
 
-
 app.get("/api/organizations/:id/members", async (req, res) => {
   try {
     const { id } = req.params;
@@ -317,7 +364,6 @@ app.get("/api/organizations/:id/members", async (req, res) => {
     res.status(500).json({ error: "Error fetching members" });
   }
 });
-
 
 app.post("/api/organizations/:id/add", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -400,7 +446,9 @@ app.get("/api/organizations/:id/requests", async (req, res) => {
     );
 
     if (adminCheck.rows.length === 0 || adminCheck.rows[0].role !== "admin") {
-      return res.status(403).json({ error: "Only admins can view join requests" });
+      return res
+        .status(403)
+        .json({ error: "Only admins can view join requests" });
     }
 
     const result = await pool.query(
@@ -426,7 +474,10 @@ app.put("/api/auth/profile", async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const { bio } = req.body;
 
-    await pool.query("UPDATE profiles SET bio = $1 WHERE user_id = $2", [bio, decoded.user_id]);
+    await pool.query("UPDATE profiles SET bio = $1 WHERE user_id = $2", [
+      bio,
+      decoded.user_id,
+    ]);
 
     res.json({ success: true });
   } catch (error) {
@@ -434,7 +485,6 @@ app.put("/api/auth/profile", async (req, res) => {
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
-
 
 app.post("/api/requests/:id/approve", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -449,7 +499,8 @@ app.post("/api/requests/:id/approve", async (req, res) => {
       [requestId]
     );
 
-    if (request.rows.length === 0) return res.status(404).json({ error: "Request not found" });
+    if (request.rows.length === 0)
+      return res.status(404).json({ error: "Request not found" });
 
     const { user_id, org_id } = request.rows[0];
 
@@ -490,8 +541,12 @@ app.post("/api/requests/:id/reject", async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const requestId = req.params.id;
 
-    const request = await pool.query("SELECT * FROM join_requests WHERE id = $1", [requestId]);
-    if (request.rows.length === 0) return res.status(404).json({ error: "Request not found" });
+    const request = await pool.query(
+      "SELECT * FROM join_requests WHERE id = $1",
+      [requestId]
+    );
+    if (request.rows.length === 0)
+      return res.status(404).json({ error: "Request not found" });
 
     const { org_id } = request.rows[0];
 
@@ -504,7 +559,10 @@ app.post("/api/requests/:id/reject", async (req, res) => {
       return res.status(403).json({ error: "Only admins can reject" });
     }
 
-    await pool.query(`UPDATE join_requests SET status = 'rejected' WHERE id = $1`, [requestId]);
+    await pool.query(
+      `UPDATE join_requests SET status = 'rejected' WHERE id = $1`,
+      [requestId]
+    );
 
     res.json({ success: true });
   } catch (err) {
@@ -512,7 +570,6 @@ app.post("/api/requests/:id/reject", async (req, res) => {
     res.status(500).json({ error: "Could not reject request" });
   }
 });
-
 
 // Update member role
 app.post("/api/organizations/:id/members/:userId/role", async (req, res) => {
@@ -578,7 +635,6 @@ app.delete("/api/organizations/:orgId/members/:userId", async (req, res) => {
   }
 });
 
-
 app.post("/api/organizations/:id/members/:userId/role", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
   const { role } = req.body;
@@ -611,8 +667,7 @@ app.post("/api/organizations/:id/members/:userId/role", async (req, res) => {
   }
 });
 
-
-
-
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, "0.0.0.0", () =>
+  console.log(`Server running on port ${PORT}`)
+);

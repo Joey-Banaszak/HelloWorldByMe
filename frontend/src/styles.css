@@ -34,7 +34,111 @@
 .message-time {
   font-size: 0.8em;
   color: #666;
-}
+} */
+
+  .threads-container {
+    padding: 1rem;
+  }
+  
+  .thread-block {
+    margin-bottom: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fdfdfd;
+  }
+  
+  .thread-header {
+    padding: 0.75rem;
+    background: #f1f1f1;
+    cursor: pointer;
+    font-weight: bold;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .thread-messages {
+    padding: 1rem;
+  }
+  
+  .thread-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .bubble-message {
+    max-width: 70%;
+    padding: 0.75rem 1rem;
+    border-radius: 1.2rem;
+    position: relative;
+    font-family: sans-serif;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    word-wrap: break-word;
+  }
+  
+  .received-bubble {
+    align-self: flex-start;
+    background-color: #f0f0f0;
+    color: #000;
+    border-top-left-radius: 0;
+  }
+  
+  .sent-bubble {
+    align-self: flex-end;
+    background-color: #d0ebff;
+    color: #000;
+    border-top-right-radius: 0;
+  }
+  
+  .bubble-meta {
+    font-size: 0.75rem;
+    color: #555;
+    margin-bottom: 0.25rem;
+  }
+  
+  .bubble-timestamp {
+    display: block;
+    font-size: 0.7rem;
+    color: #999;
+    margin-top: 2px;
+  }
+  
+  .bubble-content {
+    white-space: pre-wrap;
+    font-size: 1rem;
+  }
+  
+  .bubble-actions {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .bubble-actions button {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .reply-box-below-thread {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .reply-box-below-thread textarea {
+    resize: vertical;
+    min-height: 60px;
+    padding: 0.5rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+  
+  .reply-box-below-thread button {
+    align-self: flex-start;
+    font-size: 0.9rem;
+    padding: 0.3rem 0.6rem;
+  }
 
 /* Message Input */
 .message-input {
@@ -59,7 +163,17 @@
   cursor: pointer;
 }
 
-
+.comm-method-selector {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+}
+  
+  .comm-method-selector select {
+    padding: 0.3rem;
+    border-radius: 4px;
+    margin-left: 0.3rem;
+}
+  
 
 /* General Styles */
 body {

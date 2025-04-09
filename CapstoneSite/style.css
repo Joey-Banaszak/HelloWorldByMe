@@ -1,0 +1,17 @@
+.header {
+    padding: 24px;
+}
+
+.logo-title-container {
+    display: flex;
+    align-items: center; 
+}
+
+.logo { 
+    width: 50px; 
+    height: auto; 
+}
+
+.body {
+   background-color: lightblue;
+}
