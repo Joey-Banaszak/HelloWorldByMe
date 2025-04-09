@@ -15,19 +15,19 @@ const Sidebar = () => {
 
         // ✅ Relative path so Nginx can forward to backend
         const unreadRes = await axios.get("/messages/unread-count", {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         setUnreadCount(unreadRes.data.count);
 
         const orgRes = await axios.get("/api/organizations", {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         let totalPending = 0;
         for (const org of orgRes.data.organizations) {
           if (org.role === "admin") {
             const r = await axios.get(`/api/organizations/${org.id}/requests`, {
-              headers: { Authorization: `Bearer ${token}` }
+              headers: { Authorization: `Bearer ${token}` },
             });
             totalPending += r.data.requests.length;
           }
@@ -45,27 +45,46 @@ const Sidebar = () => {
   return (
     <aside className="sidebar">
       <h2>Menu</h2>
-      <button className="nav-item" onClick={() => navigate("/")}>Home</button>
-      <button className="nav-item" onClick={() => navigate("/profile")}>Profile</button>
+      <button className="nav-item" onClick={() => navigate("/")}>
+        Home
+      </button>
+      <button className="nav-item" onClick={() => navigate("/profile")}>
+        Profile
+      </button>
       <button className="nav-item" onClick={() => navigate("/messages")}>
-        Messages {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+        Messages{" "}
+        {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
       </button>
       <button className="nav-item" onClick={() => navigate("/people")}>
         People & Organizations
-        {pendingRequests > 0 && <span className="badge">{pendingRequests}</span>}
+        {pendingRequests > 0 && (
+          <span className="badge">{pendingRequests}</span>
+        )}
       </button>
-      <button className="nav-item" onClick={() => navigate("/join-orgs")}>Join Organizations</button>
+      <button className="nav-item" onClick={() => navigate("/join-orgs")}>
+        Join Organizations
+      </button>
 
       <h2>Navigation</h2>
-      <button className="nav-item" onClick={() => navigate("/nav-form")}>Navigation Form</button>
-      <button className="nav-item" onClick={() => navigate("/service-match")}>Service Matching</button>
-      <button className="nav-item" onClick={() => navigate("/mapping")}>Mapping</button>
+      <button className="nav-item" onClick={() => navigate("/nav-form")}>
+        Navigation Form
+      </button>
+      <button className="nav-item" onClick={() => navigate("/mapping")}>
+        Mapping
+      </button>
+      <button className="nav-item" onClick={() => navigate("/service-match")}>
+        Service Matching
+      </button>
       <h2></h2>
-      <button className="nav-item" onClick={() => {
-        localStorage.clear();
-        navigate("/login");
-      }}>Log Out</button>
-      
+      <button
+        className="nav-item"
+        onClick={() => {
+          localStorage.clear();
+          navigate("/login");
+        }}
+      >
+        Log Out
+      </button>
     </aside>
   );
 };

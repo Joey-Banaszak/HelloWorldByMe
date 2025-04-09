@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 
+// shelter data used for testing
 const sheltersData = [
   {
     name: "Our Family Services Reunion House",
@@ -9,7 +10,8 @@ const sheltersData = [
       gender: "any",
       age_range: "12-17",
       services: "any",
-      notes: "Only takes unaccompanied youth aged 12-17, go to nearest Safe Place and call number",
+      notes:
+        "Only takes unaccompanied youth aged 12-17, go to nearest Safe Place and call number",
     },
     bed_secured: false,
   },
@@ -34,7 +36,8 @@ const sheltersData = [
       gender: "any",
       age_range: "18-24",
       services: "any",
-      notes: "Must come to location ASAP, as first come, serve first. Services are program-based.",
+      notes:
+        "Must come to location ASAP, as first come, serve first. Services are program-based.",
     },
     bed_secured: false,
   },
@@ -54,6 +57,7 @@ const sheltersData = [
 ];
 
 const ServiceMatch = () => {
+  // default values
   const [clients, setClients] = useState({});
   const [selectedClient, setSelectedClient] = useState("");
   const [age, setAge] = useState("12-17");
@@ -72,7 +76,7 @@ const ServiceMatch = () => {
       alert("Please select a client");
       return;
     }
-
+    // portion that handles actual service matching data
     const matchedShelters = sheltersData.filter((shelter) => {
       const ageMatch =
         shelter.restrictions.age_range === age ||
@@ -83,12 +87,18 @@ const ServiceMatch = () => {
 
       const genderMatch =
         shelter.restrictions.gender === "any" ||
-        shelter.restrictions.gender.toLowerCase().startsWith(gender.toLowerCase().charAt(0));
+        shelter.restrictions.gender
+          .toLowerCase()
+          .startsWith(gender.toLowerCase().charAt(0));
 
       const servicesMatch =
-        services === "any" || shelter.restrictions.services === "any" || shelter.restrictions.services === services;
+        services === "any" ||
+        shelter.restrictions.services === "any" ||
+        shelter.restrictions.services === services;
 
-      return shelter.available_beds > 0 && ageMatch && genderMatch && servicesMatch;
+      return (
+        shelter.available_beds > 0 && ageMatch && genderMatch && servicesMatch
+      );
     });
 
     setMatches(matchedShelters);
@@ -104,12 +114,15 @@ const ServiceMatch = () => {
     alert(`Shelter saved: ${selectedShelter.name}`);
   };
 
+  // handles displays
   return (
     <div className="max-w-3xl mx-auto mt-10 p-6 bg-white shadow-lg rounded-xl text-gray-800">
       <h2 className="text-2xl font-bold mb-4 text-center">Service Matching</h2>
 
       <div className="mb-6">
-        <label className="block mb-2 text-blue-800 font-medium">Select Individual</label>
+        <label className="block mb-2 text-blue-800 font-medium">
+          Select Individual
+        </label>
         <select
           value={selectedClient}
           onChange={(e) => setSelectedClient(e.target.value)}
@@ -180,7 +193,10 @@ const ServiceMatch = () => {
           <p>No shelters available</p>
         ) : (
           matches.map((shelter, idx) => (
-            <div key={idx} className="border p-4 mb-3 bg-white shadow rounded-md">
+            <div
+              key={idx}
+              className="border p-4 mb-3 bg-white shadow rounded-md"
+            >
               <h3 className="font-bold">{shelter.name}</h3>
               <p>Available Beds: {shelter.available_beds}</p>
               <p>Restrictions: {shelter.restrictions.notes}</p>
