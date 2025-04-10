@@ -161,7 +161,7 @@ export default function Mapping() {
     e.preventDefault();
     if (!formData.name) return alert("Please enter a client name.");
     setPlacedMarkerMode(true);
-    alert("Click on the map to place the marker.");
+    //alert("Click on the map to place the marker.");
   };
 
   // resets icons
