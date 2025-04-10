@@ -14,7 +14,8 @@ const Messages = () => {
   const [threads, setThreads] = useState([]);
 
   const token = localStorage.getItem("token");
-  const userId = localStorage.getItem("user_id");
+  //const userId = localStorage.getItem("user_id");
+  const userId = parseInt(localStorage.getItem("user_id"), 10);
 
   useEffect(() => {
     if (!token) {
@@ -108,6 +109,8 @@ const Messages = () => {
 
     const content = selectedUser ? newMessage : replyMessage;
 
+    //console.log("Message sender:", msg.sender, "User ID:", userId);
+
     if (content.trim() === "") {
       setError("Message cannot be empty.");
       return;
@@ -121,7 +124,7 @@ const Messages = () => {
       });
 
       setNewMessage("");
-      setReplyMessage("");
+      //setReplyMessage("");
       setSelectedMessage(null);
       setSelectedUser(null);
       alert("Message sent!");
@@ -258,11 +261,15 @@ const Messages = () => {
                         }`}
                       >
                         <div className="bubble-meta">
-                          {msg.direction === "sent" ? "To" : "From"}:{" "}
-                          {msg.direction === "sent" ? msg.receiver : msg.sender}
-                          <span className="bubble-timestamp">
+                        {msg.direction === "inbox" && (
+                            <>
+                            From: {msg.sender}
+                            <br />
+                            </>
+                        )}
+                        <span className="bubble-timestamp">
                             {new Date(msg.timestamp).toLocaleString()}
-                          </span>
+                        </span>
                         </div>
                         <div className="bubble-content">{msg.content}</div>
                         <div className="bubble-actions">
