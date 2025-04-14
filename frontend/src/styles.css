@@ -173,6 +173,16 @@
     border-radius: 4px;
     margin-left: 0.3rem;
 }
+
+.unread-badge {
+    background-color: red;
+    color: white;
+    font-size: 0.75rem;
+    border-radius: 10px;
+    padding: 2px 6px;
+    margin-left: 8px;
+  }
+  
   
 
 /* General Styles */
