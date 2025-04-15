@@ -3,6 +3,105 @@ import axios from "axios";
 import Layout from "./Layout";
 import "./styles.css";
 
+// 1. Define dummy users
+const dummyUsers = [
+    { user_id: "sammm", name: "Samantha", role: "navigator", groups: ["Capstone Team"] },
+    { user_id: "nick", name: "Nick", role: "user", groups: ["Capstone Team"] },
+    { user_id: "alex", name: "Alex", role: "navigator", groups: ["Capstone Team"] },
+    { user_id: "jordan", name: "Jordan", role: "user", groups: [] },
+    { user_id: "peter", name: "Peter", role: "admin", groups: [] },
+    { user_id: "kevin", name: "Kevin", role: "admin", groups: [] }
+  ];
+  
+  const groupNameSet = new Set();
+    dummyUsers.forEach(user => {
+    user.groups.forEach(group => groupNameSet.add(group));
+    });
+    //groupNameSet.add("Admin");
+    // groupNameSet.add("Navigators");
+    // groupNameSet.add("Users");
+
+    const groupNameToId = {};
+    const groups = Array.from(groupNameSet).map((name, idx) => {
+    const id = idx + 1;
+    groupNameToId[name] = id;
+    return { id, name };
+    });
+
+    const group_members = [];
+
+    dummyUsers.forEach(user => {
+      // Group memberships
+      user.groups.forEach(groupName => {
+        group_members.push({
+          group_id: groupNameToId[groupName],
+          user_id: user.user_id
+        });
+      });
+    
+      // Role-based groups
+    //   group_members.push({
+    //     group_id: groupNameToId[user.role === "navigator" ? "Navigators" : "Users"],
+    //     user_id: user.user_id
+    //   });
+    // group_members.push({
+    //     group_id: groupNameToId["Admin"],
+    //     user_id: user.user_id
+    //   });
+
+    // group_members.push({
+    // group_id: groupNameToId["Navigators"],
+    // user_id: user.user_id
+    // });
+
+    // group_members.push({
+    //     group_id: groupNameToId["Users"],
+    //     user_id: user.user_id
+    //   });
+    });
+    
+  // 4. Combine everything into dummyData
+  const dummyData = {
+    users: dummyUsers,
+    groups,
+    group_members,
+    messages: [
+        {
+          id: 1,
+          sender: "sammm",
+          receiver: "nick",
+          content: "Hey Nick!",
+          timestamp: "2025-04-14T10:00:00Z",
+          is_read: false
+        },
+        {
+          id: 2,
+          sender: "nick",
+          receiver: "sammm",
+          content: "Hey! How's it going?",
+          timestamp: "2025-04-14T10:05:00Z",
+          is_read: false
+        },
+        {
+          id: 3,
+          sender: "alex",
+          group_id: 1,
+          content: "Are we ready for the demo?",
+          timestamp: "2025-04-14T10:10:00Z",
+          is_read: false
+        },
+        {
+          id: 4,
+          sender: "sammm",
+          group_id: 1,
+          content: "Almost!",
+          timestamp: "2025-04-14T10:12:00Z",
+          is_read: false
+        }
+    ]
+  };
+
+
 const Messages = () => {
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [replyMessages, setReplyMessages] = useState({});
@@ -22,62 +121,40 @@ const Messages = () => {
 // console.log("user id: ", userId);
 
   useEffect(() => {
-    if (!token) {
-      window.location.href = "/login";
-      return;
-    }
-
-    const fetchMessages = async () => {
-      try {
-        const inboxRes = await axios.get("/messages/inbox", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const sentRes = await axios.get("/messages/sent", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const inboxMsgs = inboxRes.data.messages || [];
-        const sentMsgs = sentRes.data.messages || [];
-
-        const groupedThreads = {};
-
-        // Group inbox messages by sender
-        inboxMsgs.forEach((msg) => {
-          const user = msg.sender;
-          if (!groupedThreads[user]) groupedThreads[user] = [];
-          groupedThreads[user].push({ ...msg, direction: "inbox" });
-        });
-
-        // Group sent messages by receiver
-        sentMsgs.forEach((msg) => {
-          const user = msg.receiver;
-          if (!groupedThreads[user]) groupedThreads[user] = [];
-          groupedThreads[user].push({ ...msg, direction: "sent" });
-        });
-
-        // Convert to array of threads
-        const threadList = Object.entries(groupedThreads).map(
-            ([userId, messages]) => ({
-              userId,
-              messages: messages.sort(
-                (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
-              ),
-              isOpen: false,
-              unreadCount: messages.filter(
-                (msg) => msg.direction === "inbox" && !msg.is_read
-              ).length
-            })
-          );          
-
-        setThreads(threadList);
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-      }
-    };
-
-    fetchMessages();
-  }, [token]);
+    const userId = localStorage.getItem("user_id"); // or hardcode for now
+  
+    const userGroups = dummyData.group_members
+      .filter((gm) => gm.user_id === userId)
+      .map((gm) => gm.group_id);
+  
+      const inboxMsgs = dummyData.messages.filter(
+        (msg) =>
+          (!msg.group_id &&
+            (msg.receiver === userId || msg.sender === userId)) || // individual both directions
+          (msg.group_id && userGroups.includes(msg.group_id)) // group
+      );      
+  
+    const groupedThreads = {};
+  
+    inboxMsgs.forEach((msg) => {
+      const key = msg.group_id ? `group-${msg.group_id}` : msg.sender === userId ? msg.receiver : msg.sender;
+      if (!groupedThreads[key]) groupedThreads[key] = [];
+      groupedThreads[key].push(msg);
+    });
+  
+    const threadList = Object.entries(groupedThreads).map(([threadId, messages]) => ({
+        userId: threadId,
+        messages: messages
+          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+          .map((msg) => ({
+            ...msg,
+            direction: msg.sender === userId ? "sent" : "inbox"
+          })),
+        isOpen: false,
+        unreadCount: messages.filter((msg) => !msg.is_read && msg.sender !== userId).length
+      }));      
+    setThreads(threadList);
+  }, []);  
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -103,72 +180,72 @@ const Messages = () => {
   };
 
   const sendMessage = async () => {
-    if (!selectedUser && !selectedMessage) {
-      setError("Please select a user or reply to a message.");
-      return;
-    }
-
-    const receiver = selectedUser
-      ? selectedUser.user_id
-      : selectedMessage.sender === userId
-      ? selectedMessage.receiver
-      : selectedMessage.sender;
-
-    // const content = selectedUser ? newMessage : replyMessage;
-    const content = selectedUser ? newMessage : replyMessages[receiver] || "";
-
-    if (content.trim() === "") {
+    const content = newMessage.trim();
+    if (!content) {
       setError("Message cannot be empty.");
       return;
     }
-
-    console.log("user_id in localStorage:", localStorage.getItem("user_id"));
-    console.log("user id: ", userId);
-    console.log("selectedUser:", selectedUser);
-
-    console.log("Sending message:", {
-        sender: userId,
-        receiver,
-        content,
-      });
-
-    try {
-      await axios.post("/messages", {
-        sender: userId,
-        receiver,
-        content,
-      });
-
-      setNewMessage("");
-      setSelectedMessage(null);
-      setSelectedUser(null);
-      alert("Message sent!");
-    } catch (error) {
-      console.error("Error sending message:", error);
-      setError("Failed to send message. Try again.");
-    }
+  
+        if (messageMode === "role") {
+        const role = selectedUser?.role;
+        const groupName = role.charAt(0).toUpperCase() + role.slice(1) + "s"; // e.g. "navigator" → "Navigators"
+        let group = dummyData.groups.find((g) => g.name === groupName);
+      
+        if (!group) {
+            // Create group on the fly
+            const newId = dummyData.groups.length + 1;
+            group = { id: newId, name: groupName };
+            dummyData.groups.push(group);
+          
+            // Add members
+            dummyUsers.forEach((user) => {
+              if (user.role === role) {
+                dummyData.group_members.push({
+                  group_id: newId,
+                  user_id: user.user_id
+                });
+              }
+            });
+          }          
+      
+        const newGroupMessage = {
+          id: Date.now(),
+          sender: userId,
+          group_id: group.id,
+          content: content,
+          timestamp: new Date().toISOString(),
+          direction: "sent"
+        };
+      
+        setThreads((prev) => {
+          const threadKey = `group-${group.id}`;
+          const index = prev.findIndex(t => t.userId === threadKey);
+          if (index !== -1) {
+            const updated = [...prev];
+            updated[index].messages.push(newGroupMessage);
+            return updated;
+          } else {
+            return [
+              ...prev,
+              {
+                userId: threadKey,
+                messages: [newGroupMessage],
+                isOpen: false,
+                unreadCount: 1
+              }
+            ];
+          }
+        });
+      
+        setNewMessage("");
+        setSelectedUser(null);
+        return;
+      }
+  
+    // Fallback: individual message (your existing logic)
+    // ...
   };
-
-  const deleteMessage = async (id) => {
-    try {
-      await axios.delete(`/api/messages/delete/${id}`);
-
-      // Remove message from threads state
-      const updatedThreads = threads
-        .map((thread) => {
-          return {
-            ...thread,
-            messages: thread.messages.filter((m) => m.id !== id),
-          };
-        })
-        .filter((thread) => thread.messages.length > 0); // Optionally remove empty threads
-
-      setThreads(updatedThreads);
-    } catch (err) {
-      console.error("Delete failed:", err);
-      alert("Failed to delete message");
-    }
-  };
+  
 
   const archiveMessage = async (id) => {
     try {
@@ -246,7 +323,9 @@ const Messages = () => {
     <Layout>
       {
         <div className="threads-container">
-          {threads.map((thread, index) => (
+          {threads.map((thread, index) => {
+            const isGroup = thread.userId.startsWith("group-");
+            return (
             <div key={index} className="thread-block">
               <div
                 className="thread-header"
@@ -268,7 +347,9 @@ const Messages = () => {
                           });
                   
                           // Optionally mark as read locally too
-                          msg.is_read = true;
+                          //msg.is_read = true;
+                          const globalMsg = dummyData.messages.find(m => m.id === msg.id);
+                          if (globalMsg) globalMsg.is_read = true;
                           updated[index].unreadCount -= 1;
                         } catch (err) {
                           console.error("Failed to mark message as read:", err);
@@ -277,7 +358,10 @@ const Messages = () => {
                     }
                   }}                  
                 >
-                <strong>Conversation with:</strong> {thread.userId}
+                <strong>Conversation with:</strong>{" "}
+                {thread.userId.startsWith("group-")
+                ? dummyData.groups.find((g) => `group-${g.id}` === thread.userId)?.name || "Unnamed Group"
+                : thread.userId}
                 {thread.unreadCount > 0 && (
                 <span className="unread-badge"> {thread.unreadCount} new </span>
                 )}
@@ -311,7 +395,16 @@ const Messages = () => {
                             {new Date(msg.timestamp).toLocaleString()}
                         </span>
                         </div>
-                        <div className="bubble-content">{msg.content}</div>
+                        <div className="bubble-content">
+                        {isGroup && (
+                            <div className="bubble-sender" style={{ fontWeight: "bold", marginBottom: "0.25rem" }}>
+                            {msg.sender}
+                            </div>
+                        )}
+
+                        {msg.content}
+                        </div>
+
                         <div className="bubble-actions">
                           <button onClick={() => deleteMessage(msg.id)}>
                             🗑️
@@ -347,7 +440,8 @@ const Messages = () => {
                 </>
               )}
             </div>
-          ))}
+        );
+        })}
         </div>
       }
       {selectedMessage && (
@@ -376,19 +470,27 @@ const Messages = () => {
             Send to:
         </label>
         <select
-            id="message-mode"
-            value={messageMode}
-            onChange={(e) => {
-            const selected = e.target.value;
-            setMessageMode(selected);
-            if (selected === "role") {
-                alert("Messaging by role is not currently available.");
-            }
-            }}
+        id="message-mode"
+        value={messageMode}
+        onChange={(e) => setMessageMode(e.target.value)}
         >
-            <option value="individual">Individual</option>
-            <option value="role">By Role</option>
+        <option value="individual">Individual</option>
+        <option value="role">By Role</option>
         </select>
+        {messageMode === "role" && (
+        <select
+            id="role-target"
+            value={selectedUser?.role || ""}
+            onChange={(e) =>
+            setSelectedUser({ role: e.target.value })
+            }
+        >
+            <option value="">Select a role</option>
+            <option value="admin">Admin</option>
+            <option value="navigator">Navigator</option>
+            <option value="user">User</option>
+        </select>
+        )}
         </div>
         {error && <p className="error-message">{error}</p>}
         <input
