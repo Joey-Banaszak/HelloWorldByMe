@@ -38,26 +38,6 @@ const dummyUsers = [
           user_id: user.user_id
         });
       });
-    
-      // Role-based groups
-    //   group_members.push({
-    //     group_id: groupNameToId[user.role === "navigator" ? "Navigators" : "Users"],
-    //     user_id: user.user_id
-    //   });
-    // group_members.push({
-    //     group_id: groupNameToId["Admin"],
-    //     user_id: user.user_id
-    //   });
-
-    // group_members.push({
-    // group_id: groupNameToId["Navigators"],
-    // user_id: user.user_id
-    // });
-
-    // group_members.push({
-    //     group_id: groupNameToId["Users"],
-    //     user_id: user.user_id
-    //   });
     });
     
   // 4. Combine everything into dummyData
