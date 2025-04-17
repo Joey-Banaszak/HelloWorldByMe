@@ -206,111 +206,204 @@ const Messages = () => {
     setError("");
   };
 
-  const sendMessage = async () => {
-    const content = newMessage.trim();
+  const sendMessage = async ({ contentOverride = null, targetUserId = null } = {}) => {
+    const content = (contentOverride || newMessage || "").trim();
     if (!content) {
       setError("Message cannot be empty.");
       return;
     }
   
-        if (messageMode === "role") {
-        const role = selectedUser?.role;
-        const groupName = role.charAt(0).toUpperCase() + role.slice(1) + "s"; // e.g. "navigator" → "Navigators"
-        let group = dummyData.groups.find((g) => g.name === groupName);
-      
-        if (!group) {
-            // Create group on the fly
-            const newId = dummyData.groups.length + 1;
-            group = { id: newId, name: groupName };
-            dummyData.groups.push(group);
-          
-            // Add members
-            dummyUsers.forEach((user) => {
-              if (user.role === role) {
-                dummyData.group_members.push({
-                  group_id: newId,
-                  user_id: user.user_id
-                });
-              }
+    const sender = userId;
+  
+    if (messageMode === "role") {
+      const role = selectedUser?.role;
+      const groupName = role.charAt(0).toUpperCase() + role.slice(1) + "s";
+      let group = dummyData.groups.find((g) => g.name === groupName);
+  
+      if (!group) {
+        const newId = dummyData.groups.length + 1;
+        group = { id: newId, name: groupName };
+        dummyData.groups.push(group);
+  
+        dummyUsers.forEach((user) => {
+          if (user.role === role) {
+            dummyData.group_members.push({
+              group_id: newId,
+              user_id: user.user_id
             });
-          }          
-      
-        const newGroupMessage = {
-          id: Date.now(),
-          sender: userId,
-          group_id: group.id,
-          content: content,
-          timestamp: new Date().toISOString(),
-          direction: "sent"
-        };
-      
-        setThreads((prev) => {
-          const threadKey = `group-${group.id}`;
-          const index = prev.findIndex(t => t.userId === threadKey);
-          if (index !== -1) {
-            const updated = [...prev];
-            updated[index].messages.push(newGroupMessage);
-            return updated;
-          } else {
-            return [
-              ...prev,
-              {
-                userId: threadKey,
-                messages: [newGroupMessage],
-                isOpen: false,
-                unreadCount: 1
-              }
-            ];
           }
         });
-      
+      }
+  
+      const newGroupMessage = {
+        //id: Date.now(),
+        id: Math.floor(Math.random() * 1000000), // TODO change to date.now later
+        sender,
+        group_id: group.id,
+        content,
+        timestamp: new Date().toISOString(),
+        direction: "sent",
+        is_read: false
+      };
+  
+      dummyData.messages.push(newGroupMessage);
+  
+      setThreads((prev) => {
+        const threadKey = `group-${group.id}`;
+        const index = prev.findIndex(t => t.userId === threadKey);
+        if (index !== -1) {
+          const updated = [...prev];
+          updated[index].messages.push(newGroupMessage);
+          return updated;
+        } else {
+          return [
+            ...prev,
+            {
+              userId: threadKey,
+              messages: [newGroupMessage],
+              isOpen: false,
+              unreadCount: 1
+            }
+          ];
+        }
+      });
+
+      if (contentOverride) {
+        setReplyMessages((prev) => ({ ...prev, [receiver]: "" }));
+      } else {
         setNewMessage("");
         setSelectedUser(null);
-        return;
       }
 
-      if (messageMode === "group") {
-        if (selectedUsers.length === 0) {
-          setError("Please select at least one user.");
-          return;
-        }
-      
-        const groupMessages = selectedUsers.map((receiverId) => ({
-          id: Date.now() + Math.random(), // slightly varied ID
-          sender: userId,
-          receiver: receiverId,
-          content: content,
-          timestamp: new Date().toISOString(),
-          direction: "sent"
-        }));
-      
-        setThreads((prev) => {
-          const updated = [...prev];
-          groupMessages.forEach((msg) => {
-            const index = updated.findIndex(t => t.userId === msg.receiver);
-            if (index !== -1) {
-              updated[index].messages.push(msg);
-            } else {
-              updated.push({
-                userId: msg.receiver,
-                messages: [msg],
-                isOpen: false,
-                unreadCount: 1
-              });
-            }
-          });
-          return updated;
-        });
-      
-        setNewMessage("");
-        setSelectedUsers([]);
+      return;
+  
+    //   setNewMessage("");
+    //   setSelectedUser(null);
+    //   return;
+    }
+  
+    if (messageMode === "group") {
+      if (selectedUsers.length === 0) {
+        setError("Please select at least one user.");
         return;
-      }      
+      }
   
-    // Fallback: individual message (your existing logic)
-    // ...
+      const groupMessages = selectedUsers.map((receiverId) => ({
+        //id: Date.now() + Math.random(),
+        id: Math.floor(Math.random() * 1000000), // TODO change to date.now later
+        sender,
+        receiver: receiverId,
+        content,
+        timestamp: new Date().toISOString(),
+        direction: "sent",
+        is_read: false
+      }));
+  
+      groupMessages.forEach((msg) => dummyData.messages.push(msg));
+  
+      setThreads((prev) => {
+        const updated = [...prev];
+        groupMessages.forEach((msg) => {
+          const index = updated.findIndex(t => t.userId === msg.receiver);
+          if (index !== -1) {
+            updated[index].messages.push(msg);
+          } else {
+            updated.push({
+              userId: msg.receiver,
+              messages: [msg],
+              isOpen: false,
+              unreadCount: 1
+            });
+          }
+        });
+        return updated;
+      });
+  
+    //   setNewMessage("");
+    //   setSelectedUsers([]);
+    //   return;
+
+    if (contentOverride) {
+        setReplyMessages((prev) => ({ ...prev, [receiver]: "" }));
+      } else {
+        setNewMessage("");
+        setSelectedUser(null);
+      }
+
+      return;
+    }
+//   else
+//   {
+    // Default case: individual message (includes reply logic!)
+    const receiver = targetUserId || selectedUser?.user_id;
+    if (!receiver) {
+      setError("No recipient selected.");
+      return;
+    }
+  
+    const newMsg = {
+      //id: Date.now(),
+      id: Math.floor(Math.random() * 1000000), // TODO change to date.now later
+      sender,
+      receiver,
+      content,
+      timestamp: new Date().toISOString(),
+      direction: "sent",
+      is_read: false
+    };
+  
+    dummyData.messages.push(newMsg);
+  
+    setThreads((prev) => {
+      const index = prev.findIndex(t => t.userId === receiver);
+      if (index !== -1) {
+        const updated = [...prev];
+        updated[index].messages.push(newMsg);
+        return updated;
+      } else {
+        return [
+          ...prev,
+          {
+            userId: receiver,
+            messages: [newMsg],
+            isOpen: false,
+            unreadCount: 1
+          }
+        ];
+      }
+    })  
+
+    if (contentOverride) {
+        setReplyMessages((prev) => ({ ...prev, [receiver]: "" }));
+      } else {
+        setNewMessage("");
+        setSelectedUser(null);
+      }
+    //}
+
+    //return;
+  }; 
+  
+  const deleteMessage = async (id) => {
+    try {
+      await axios.delete(`/api/messages/delete/${id}`);
+
+      // Remove message from threads state
+      const updatedThreads = threads
+        .map((thread) => {
+          return {
+            ...thread,
+            messages: thread.messages.filter((m) => m.id !== id),
+          };
+        })
+        .filter((thread) => thread.messages.length > 0); // Optionally remove empty threads
+
+      setThreads(updatedThreads);
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("Failed to delete message");
+    }
   };
-  
 
   const archiveMessage = async (id) => {
     try {
@@ -336,51 +429,6 @@ const Messages = () => {
     } catch (err) {
       console.error("Failed to archive message:", err);
       alert("Failed to archive message");
-    }
-  };
-
-  const sendReply = async (receiverId) => {
-    const messageText = replyMessages[receiverId] || "";
-
-    if (messageText.trim() === "") {
-      setError("Message cannot be empty.");
-      return;
-    }
-
-    const newMsg = {
-      id: Date.now(),
-      sender: userId,
-      receiver: receiverId,
-      content: messageText,
-      timestamp: new Date().toISOString(),
-      direction: "sent",
-    };
-
-    try {
-      await axios.post("/messages", {
-        sender: userId,
-        receiver: receiverId,
-        content: messageText,
-      });
-
-      const updatedThreads = threads.map((thread) => {
-        if (thread.userId === receiverId) {
-          return {
-            ...thread,
-            messages: [...thread.messages, newMsg],
-          };
-        }
-        return thread;
-      });
-
-      setThreads(updatedThreads);
-      setReplyMessages((prev) => ({
-        ...prev,
-        [receiverId]: "", // clear only this thread's reply box
-      }));
-    } catch (error) {
-      console.error("Error sending message:", error);
-      setError("Failed to send message. Try again.");
     }
   };
 
@@ -498,8 +546,11 @@ const Messages = () => {
                         }))
                       }
                     />
-                    <button onClick={() => sendReply(thread.userId)}>
-                      Send
+                    <button onClick={() => sendMessage({
+                    contentOverride: replyMessages[thread.userId],
+                    targetUserId: thread.userId
+                    })}>
+                    Send
                     </button>
                   </div>
                 </>
