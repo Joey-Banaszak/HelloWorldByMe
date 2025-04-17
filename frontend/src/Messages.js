@@ -64,14 +64,30 @@ const dummyUsers = [
         },
         {
           id: 3,
-          sender: "alex",
+          sender: "Joey",
           group_id: 1,
           content: "Are we ready for the demo?",
           timestamp: "2025-04-14T10:10:00Z",
           is_read: false
         },
         {
-          id: 4,
+            id: 4,
+            sender: "Jessica",
+            group_id: 1,
+            content: "Just finishing up!",
+            timestamp: "2025-04-14T10:11:00Z",
+            is_read: false
+        },
+        {
+            id: 3,
+            sender: "Elizabeth",
+            group_id: 1,
+            content: "All done here!",
+            timestamp: "2025-04-14T10:11:30Z",
+            is_read: false
+        },
+        {
+          id: 6,
           sender: "sammm",
           group_id: 1,
           content: "Almost!",
@@ -87,18 +103,24 @@ const Messages = () => {
   const [replyMessages, setReplyMessages] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+
+  const [roleSearchQuery, setRoleSearchQuery] = useState("");
+  const [roleSearchResults, setRoleSearchResults] = useState([]);
+
   const [selectedUser, setSelectedUser] = useState(null);
   const [newMessage, setNewMessage] = useState("");
   const [error, setError] = useState("");
   const [threads, setThreads] = useState([]);
   const [messageMode, setMessageMode] = useState("individual");
+  const [searchMode, setSearchMode] = useState("user");
 
   const token = localStorage.getItem("token");
   const userId = localStorage.getItem("user_id");
-  //const userId = parseInt(localStorage.getItem("user_id"), 10);
+ 
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [groupSearchQuery, setGroupSearchQuery] = useState("");
+  const [groupSearchResults, setGroupSearchResults] = useState([]);
 
-//   console.log("user_id in localStorage:", localStorage.getItem("user_id"));
-// console.log("user id: ", userId);
 
   useEffect(() => {
     const userId = localStorage.getItem("user_id"); // or hardcode for now
@@ -152,10 +174,35 @@ const Messages = () => {
     }
   };
 
+  const handleRoleSearch = async (query) => {
+    //console.log("Searching roles for:", query); // <--- Add this
+
+    setRoleSearchQuery(query);
+    setError("");
+
+    if (query.length > 2) {
+      try {
+        const response = await axios.get(`/api/users/rolesearch?query=${query}`);
+        setRoleSearchResults(response.data.users);
+      } catch (error) {
+        console.error("Error searching users:", error);
+      }
+    } else {
+      setRoleSearchResults([]);
+    }
+  };
+
   const selectUserForMessage = (user) => {
     setSelectedUser(user);
     setSearchQuery(user.name);
     setSearchResults([]);
+    setError("");
+  };
+
+  const selectRoleUserForMessage = (user) => {
+    setSelectedUser(user);
+    setRoleSearchQuery(user.name);
+    setRoleSearchResults([]);
     setError("");
   };
 
@@ -221,6 +268,44 @@ const Messages = () => {
         setSelectedUser(null);
         return;
       }
+
+      if (messageMode === "group") {
+        if (selectedUsers.length === 0) {
+          setError("Please select at least one user.");
+          return;
+        }
+      
+        const groupMessages = selectedUsers.map((receiverId) => ({
+          id: Date.now() + Math.random(), // slightly varied ID
+          sender: userId,
+          receiver: receiverId,
+          content: content,
+          timestamp: new Date().toISOString(),
+          direction: "sent"
+        }));
+      
+        setThreads((prev) => {
+          const updated = [...prev];
+          groupMessages.forEach((msg) => {
+            const index = updated.findIndex(t => t.userId === msg.receiver);
+            if (index !== -1) {
+              updated[index].messages.push(msg);
+            } else {
+              updated.push({
+                userId: msg.receiver,
+                messages: [msg],
+                isOpen: false,
+                unreadCount: 1
+              });
+            }
+          });
+          return updated;
+        });
+      
+        setNewMessage("");
+        setSelectedUsers([]);
+        return;
+      }      
   
     // Fallback: individual message (your existing logic)
     // ...
@@ -456,39 +541,250 @@ const Messages = () => {
         >
         <option value="individual">Individual</option>
         <option value="role">By Role</option>
+        <option value="group">Custom Group</option>
         </select>
+        </div>
+        {error && <p className="error-message">{error}</p>}
+        {messageMode === "individual" && (        
+        <div className="search-by-user">
+            <div className="search-mode-selector" style={{ marginBottom: "0.5rem" }}>
+                <label htmlFor="message-mode" style={{ marginRight: "0.5rem" }}>
+                    Search by: 
+                </label>
+                <select
+                id="search-mode"
+                value={searchMode}
+                onChange={(e) => setSearchMode(e.target.value)}
+                >
+                <option value="user">User</option>
+                <option value="role">Role</option>
+                </select>
+            </div>
+            {searchMode === "user" && (
+            <div className="search-by-user">
+                <input
+                type="text"
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                />
+                {searchResults.length > 0 && (
+                <div className="search-results">
+                    {searchResults.map((user) => (
+                    <p key={user.user_id} onClick={() => selectUserForMessage(user)}>
+                        {user.name} (@{user.user_id})
+                    </p>
+                    ))}
+                    </div>
+                )}
+            </div>
+            )}
+            {searchMode === "role" && (
+            <div className="search-by-role">
+                <input
+                type="text"
+                placeholder="Search users by role..."
+                value={roleSearchQuery}
+                onChange={(e) => handleRoleSearch(e.target.value)}
+                />
+                {roleSearchResults.length > 0 && (
+                <div className="role-search-results">
+                    {roleSearchResults.map((user) => (
+                    <p key={user.user_id} onClick={() => selectRoleUserForMessage(user)}>
+                        {user.name} (@{user.user_id})
+                    </p>
+                    ))}
+                    </div>
+                )}
+            </div>
+            )} 
+            {/* <input
+            type="text"
+            placeholder="Search users..."
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            />
+            {searchResults.length > 0 && (
+            <div className="search-results">
+                {searchResults.map((user) => (
+                <p key={user.user_id} onClick={() => selectUserForMessage(user)}>
+                    {user.name} (@{user.user_id})
+                </p>
+                ))}
+            </div>
+            )} */}
+        </div>
+        )}
+
         {messageMode === "role" && (
-        <select
+        <div className="search-by-role">
+            <select
             id="role-target"
             value={selectedUser?.role || ""}
             onChange={(e) =>
-            setSelectedUser({ role: e.target.value })
+                setSelectedUser({ role: e.target.value })
             }
-        >
+            >
             <option value="">Select a role</option>
             <option value="admin">Admin</option>
             <option value="navigator">Navigator</option>
             <option value="user">User</option>
-        </select>
-        )}
+            </select>
         </div>
-        {error && <p className="error-message">{error}</p>}
-        <input
-          type="text"
-          placeholder="Search users..."
-          value={searchQuery}
-          onChange={(e) => handleSearch(e.target.value)}
-        />
-        {searchResults.length > 0 && (
-          <div className="search-results">
-            {searchResults.map((user) => (
-              <p key={user.user_id} onClick={() => selectUserForMessage(user)}>
-                {user.name} (@{user.user_id})
-              </p>
-            ))}
-          </div>
         )}
-        
+
+        {messageMode === "group" && (
+        <div className="search-by-group" style={{ marginBottom: "1rem" }}>
+            <div className="search-mode-selector" style={{ marginBottom: "0.5rem" }}>
+                <label htmlFor="message-mode" style={{ marginRight: "0.5rem" }}>
+                    Search by: 
+                </label>
+                <select
+                id="search-mode"
+                value={searchMode}
+                onChange={(e) => setSearchMode(e.target.value)}
+                >
+                <option value="user">User</option>
+                <option value="role">Role</option>
+                </select>
+            </div>
+            {searchMode === "user" && (
+            <div className="search-by-user">
+                <input
+                type="text"
+                placeholder="Search users to add..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                />
+                {searchResults.length > 0 && (
+                <div className="search-results">
+                    {searchResults.map((user) => (
+                    <p key={user.user_id} onClick={() => selectUserForMessage(user)}>
+                        {user.name} (@{user.user_id})
+                    </p>
+                    ))}
+                    </div>
+                )}
+            </div>
+            )}
+            {searchMode === "role" && (
+            <div className="search-by-role">
+                <input
+                type="text"
+                placeholder="Search users to add by role..."
+                value={roleSearchQuery}
+                onChange={(e) => handleRoleSearch(e.target.value)}
+                />
+                {roleSearchResults.length > 0 && (
+                <div className="role-search-results">
+                    {roleSearchResults.map((user) => (
+                    <p key={user.user_id} onClick={() => selectRoleUserForMessage(user)}>
+                        {user.name} (@{user.user_id})
+                    </p>
+                    ))}
+                    </div>
+                )}
+            </div>
+            )} 
+            {/* <input
+            type="text"
+            placeholder="Search users to add..."
+            value={groupSearchQuery}
+            onChange={(e) => {
+                const query = e.target.value;
+                setGroupSearchQuery(query);
+
+                if (query.length > 2) {
+                const matches = dummyData.users.filter((u) =>
+                    u.name.toLowerCase().includes(query.toLowerCase()) ||
+                    u.user_id.toLowerCase().includes(query.toLowerCase())
+                );
+                setGroupSearchResults(matches);
+                } else {
+                setGroupSearchResults([]);
+                }
+            }}
+            /> */}
+            {groupSearchResults.length > 0 && (
+            <div className="search-results">
+                {groupSearchResults.map((user) => (
+                <p
+                    key={user.user_id}
+                    onClick={() => {
+                    if (!selectedUsers.includes(user.user_id)) {
+                        setSelectedUsers([...selectedUsers, user.user_id]);
+                    }
+                    setGroupSearchQuery("");
+                    setGroupSearchResults([]);
+                    }}
+                    style={{ cursor: "pointer" }}
+                >
+                    {user.name} (@{user.user_id})
+                </p>
+                ))}
+            </div>
+            )}
+
+            {selectedUsers.length > 0 && (
+            <div style={{ marginTop: "0.5rem" }}>
+                <strong>Selected Users:</strong>
+                <ul>
+                {selectedUsers.map((userId) => {
+                    const user = dummyData.users.find((u) => u.user_id === userId);
+                    return (
+                    <li key={userId}>
+                        {user?.name} (@{userId}){" "}
+                        <button
+                        onClick={() =>
+                            setSelectedUsers(selectedUsers.filter((id) => id !== userId))
+                        }
+                        >
+                        ❌
+                        </button>
+                    </li>
+                    );
+                })}
+                </ul>
+            </div>
+            )}
+        </div>
+        )}
+        {/* <div className="search-section">
+            <div className="search-by-user">
+                <input
+                type="text"
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                />
+                {searchResults.length > 0 && (
+                <div className="search-results">
+                    {searchResults.map((user) => (
+                    <p key={user.user_id} onClick={() => selectUserForMessage(user)}>
+                        {user.name} (@{user.user_id})
+                    </p>
+                    ))}
+                    </div>
+                )}
+            </div>
+            <div className="search-by-role">
+                <input
+                type="text"
+                placeholder="Search users by role..."
+                value={roleSearchQuery}
+                onChange={(e) => handleRoleSearch(e.target.value)}
+                />
+                {roleSearchResults.length > 0 && (
+                <div className="role-search-results">
+                    {roleSearchResults.map((user) => (
+                    <p key={user.user_id} onClick={() => selectRoleUserForMessage(user)}>
+                        {user.name} (@{user.user_id})
+                    </p>
+                    ))}
+                    </div>
+                )}
+            </div>
+        </div> */}
         <div className="comm-method-selector">
           <label htmlFor="method">Method: </label>
           <select

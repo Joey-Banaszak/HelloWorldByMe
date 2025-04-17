@@ -268,6 +268,26 @@ app.get("/api/users/search", async (req, res) => {
   }
 });
 
+app.get("/api/users/rolesearch", async (req, res) => {
+    //console.log("Role search hit with query:", req.query.query); // <--- Add this
+    const { query } = req.query;
+  
+    try {
+      const result = await pool.query(
+        `SELECT u.user_id, u.name FROM users u
+        JOIN organization_members om ON u.user_id = om.user_id
+        WHERE om.role ILIKE $1
+        LIMIT 10`,
+        [`%${query}%`]
+      );
+  
+      res.json({ users: result.rows || [] });
+    } catch (error) {
+      console.error("User Search Error:", error);
+      res.status(500).json({ error: "Error searching for users" });
+    }
+  });
+
 app.post("/api/organizations", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Unauthorized" });

@@ -454,6 +454,15 @@ button:hover {
   background-color: #ddd;
 }
 
+.search-by-user {
+    margin-bottom: 20px; /* adds some space below the user search box */
+  }
+  
+  .search-by-role {
+    /* optional: if you want it to look distinct or aligned */
+  }
+  
+
 textarea {
   width: 100%;
   height: 100px;
