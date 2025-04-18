@@ -3,101 +3,6 @@ import axios from "axios";
 import Layout from "./Layout";
 import "./styles.css";
 
-// 1. Define dummy users
-const dummyUsers = [
-    { user_id: "sammm", name: "Samantha", role: "navigator", groups: ["Capstone Team"] },
-    { user_id: "nick", name: "Nick", role: "user", groups: ["Capstone Team"] },
-    { user_id: "alex", name: "Alex", role: "navigator", groups: ["Capstone Team"] },
-    { user_id: "jordan", name: "Jordan", role: "user", groups: [] },
-    { user_id: "peter", name: "Peter", role: "admin", groups: [] },
-    { user_id: "kevin", name: "Kevin", role: "admin", groups: [] }
-  ];
-  
-  const groupNameSet = new Set();
-    dummyUsers.forEach(user => {
-    user.groups.forEach(group => groupNameSet.add(group));
-    });
-    //groupNameSet.add("Admin");
-    // groupNameSet.add("Navigators");
-    // groupNameSet.add("Users");
-
-    const groupNameToId = {};
-    const groups = Array.from(groupNameSet).map((name, idx) => {
-    const id = idx + 1;
-    groupNameToId[name] = id;
-    return { id, name };
-    });
-
-    const group_members = [];
-
-    dummyUsers.forEach(user => {
-      // Group memberships
-      user.groups.forEach(groupName => {
-        group_members.push({
-          group_id: groupNameToId[groupName],
-          user_id: user.user_id
-        });
-      });
-    });
-    
-  // 4. Combine everything into dummyData
-  const dummyData = {
-    users: dummyUsers,
-    groups,
-    group_members,
-    messages: [
-        {
-          id: 1,
-          sender: "sammm",
-          receiver: "nick",
-          content: "Hey Nick!",
-          timestamp: "2025-04-14T10:00:00Z",
-          is_read: false
-        },
-        {
-          id: 2,
-          sender: "nick",
-          receiver: "sammm",
-          content: "Hey! How's it going?",
-          timestamp: "2025-04-14T10:05:00Z",
-          is_read: false
-        },
-        {
-          id: 3,
-          sender: "Joey",
-          group_id: 1,
-          content: "Are we ready for the demo?",
-          timestamp: "2025-04-14T10:10:00Z",
-          is_read: false
-        },
-        {
-            id: 4,
-            sender: "Jessica",
-            group_id: 1,
-            content: "Just finishing up!",
-            timestamp: "2025-04-14T10:11:00Z",
-            is_read: false
-        },
-        {
-            id: 3,
-            sender: "Elizabeth",
-            group_id: 1,
-            content: "All done here!",
-            timestamp: "2025-04-14T10:11:30Z",
-            is_read: false
-        },
-        {
-          id: 6,
-          sender: "sammm",
-          group_id: 1,
-          content: "Almost!",
-          timestamp: "2025-04-14T10:12:00Z",
-          is_read: false
-        }
-    ]
-  };
-
-
 const Messages = () => {
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [replyMessages, setReplyMessages] = useState({});
@@ -121,42 +26,136 @@ const Messages = () => {
   const [groupSearchQuery, setGroupSearchQuery] = useState("");
   const [groupSearchResults, setGroupSearchResults] = useState([]);
 
+  const [newGroupName, setNewGroupName] = useState("");
+  const [groupMap, setGroupMap] = useState({});
 
-  useEffect(() => {
-    const userId = localStorage.getItem("user_id"); // or hardcode for now
+  const [availableRoles, setAvailableRoles] = useState([]);
+  const [selectedRole, setSelectedRole] = useState("");
+
+
+useEffect(() => {
+  const fetchRoles = async () => {
+    try {
+      const res = await fetch("/api/roles");
+      const data = await res.json();
+      setAvailableRoles(data.roles || []);
+    } catch (err) {
+      console.error("Failed to load roles:", err);
+    }
+  };
+
+    const fetchUsersByRole = async () => {
+      if (!selectedRole) return;
   
-    const userGroups = dummyData.group_members
-      .filter((gm) => gm.user_id === userId)
-      .map((gm) => gm.group_id);
+      try {
+        const res = await fetch(`/api/users/rolesearch?role=${selectedRole}`);
+        const data = await res.json();
+        setRoleSearchResults(data.users || []);
+      } catch (err) {
+        console.error("Failed to fetch users by role:", err);
+      } 
+    }
   
-      const inboxMsgs = dummyData.messages.filter(
-        (msg) =>
-          (!msg.group_id &&
-            (msg.receiver === userId || msg.sender === userId)) || // individual both directions
-          (msg.group_id && userGroups.includes(msg.group_id)) // group
-      );      
-  
-    const groupedThreads = {};
-  
-    inboxMsgs.forEach((msg) => {
-      const key = msg.group_id ? `group-${msg.group_id}` : msg.sender === userId ? msg.receiver : msg.sender;
-      if (!groupedThreads[key]) groupedThreads[key] = [];
-      groupedThreads[key].push(msg);
-    });
-  
-    const threadList = Object.entries(groupedThreads).map(([threadId, messages]) => ({
-        userId: threadId,
-        messages: messages
-          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-          .map((msg) => ({
-            ...msg,
-            direction: msg.sender === userId ? "sent" : "inbox"
-          })),
-        isOpen: false,
-        unreadCount: messages.filter((msg) => !msg.is_read && msg.sender !== userId).length
-      }));      
-    setThreads(threadList);
-  }, []);  
+    fetchUsersByRole();
+
+    fetchRoles();
+    fetchMessages();
+
+}, [selectedRole]);
+
+  const fetchMessages = async () => {
+    const userId = localStorage.getItem("user_id");
+    const token = localStorage.getItem("token");
+
+    try {
+      const individualRes = await axios.get("/messages/inbox", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const individualMessages = individualRes.data.messages;
+
+      // 👉 fetch group info (id + name)
+      const groupRes = await axios.get("/api/users/me/groups", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const groups = groupRes.data;
+
+      // 👉 save group_id → name mapping
+      const groupMapTemp = {};
+      groups.forEach(group => {
+        groupMapTemp[`group-${group.id}`] = group.name;
+      });
+      setGroupMap(groupMapTemp);
+
+      // 👉 fetch messages from each group
+      const groupMessages = [];
+      for (const group of groups) {
+        const res = await axios.get(`/messages/group/${group.id}`);
+        groupMessages.push(...res.data);
+      }
+
+      const allMessages = [...individualMessages, ...groupMessages];
+      const groupedThreads = {};
+
+      console.log("💬 All messages fetched:", allMessages.map(m => ({
+        id: m.id,
+        sender: m.sender,
+        is_read: m.is_read
+      })));      
+
+      allMessages.forEach((msg) => {
+        const key = msg.group_id
+        ? `group-${msg.group_id}`
+        : msg.sender === userId
+            ? msg.receiver
+            : msg.sender;
+        if (!groupedThreads[key]) groupedThreads[key] = [];
+
+        if (!groupedThreads[key].some(existing => existing.id === msg.id)) {
+        groupedThreads[key].push(msg);
+        }
+      });
+
+    //   const threadList = Object.entries(groupedThreads).map(([threadId, messages]) => ({
+    //     userId: threadId,
+    //     messages: messages
+    //       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+    //       .map((msg) => ({
+    //         ...msg,
+    //         direction: msg.sender === userId ? "sent" : "inbox"
+    //       })),
+    //     isOpen: false,
+    //     unreadCount: messages.filter((msg) => !msg.is_read && msg.sender !== userId).length
+    //   }));
+    const threadList = Object.entries(groupedThreads).map(([threadId, messages]) => {
+        const total = messages.length;
+        const unread = messages.filter((msg) => !msg.is_read && msg.sender !== userId).length;
+      
+        console.log(`🧵 ${threadId} → ${total} total, ${unread} unread`);
+      
+        return {
+          userId: threadId,
+          messages: messages
+            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+            .map((msg) => ({
+              ...msg,
+              direction: msg.sender === userId ? "sent" : "inbox"
+            })),
+          isOpen: false,
+          unreadCount: unread
+        };
+      });      
+
+      setThreads(threadList);
+
+      console.log("🧵 Threads:", threadList.map(t => ({
+        userId: t.userId,
+        messageCount: t.messages.length
+      })));
+
+    } catch (err) {
+      console.error("Error fetching messages:", err);
+    }
+  };
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -174,6 +173,16 @@ const Messages = () => {
     }
   };
 
+  const fetchGroupMessages = async (group_id) => {
+    try {
+      const res = await axios.get(`/messages/group/${group_id}`);
+      return res.data;
+    } catch (err) {
+      console.error("Failed to fetch group messages:", err);
+      return [];
+    }
+  };  
+
   const handleRoleSearch = async (query) => {
     //console.log("Searching roles for:", query); // <--- Add this
 
@@ -182,7 +191,7 @@ const Messages = () => {
 
     if (query.length > 2) {
       try {
-        const response = await axios.get(`/api/users/rolesearch?query=${query}`);
+        const response = await axios.get(`/api/users/rolesearch?role=${query}`);
         setRoleSearchResults(response.data.users);
       } catch (error) {
         console.error("Error searching users:", error);
@@ -192,12 +201,37 @@ const Messages = () => {
     }
   };
 
+  const handleUserSelect = (user) => {
+    if (messageMode === "group") {
+      if (!selectedUsers.some((u) => u.user_id === user.user_id)) {
+        setSelectedUsers((prev) => [...prev, user]);
+      }
+      setGroupSearchQuery("");
+      setGroupSearchResults([]);
+    } else if (messageMode === "individual" || messageMode === "role") {
+      setSelectedUser(user);
+      setSearchQuery(user.name);  // works for both name and role
+      setRoleSearchQuery("");     // clear role search field too
+      setSearchResults([]);
+      setRoleSearchResults([]);
+      setError("");
+    }
+  };  
+
   const selectUserForMessage = (user) => {
-    setSelectedUser(user);
-    setSearchQuery(user.name);
-    setSearchResults([]);
-    setError("");
-  };
+    if (messageMode === "group") {
+        if (!selectedUsers.some((u) => u.user_id === user.user_id)) {
+            setSelectedUsers((prev) => [...prev, user]);
+          }          
+      setGroupSearchQuery("");
+      setGroupSearchResults([]);
+    } else {
+      setSelectedUser(user);
+      setSearchQuery(user.name);
+      setSearchResults([]);
+      setError("");
+    }
+  };  
 
   const selectRoleUserForMessage = (user) => {
     setSelectedUser(user);
@@ -206,7 +240,9 @@ const Messages = () => {
     setError("");
   };
 
-  const sendMessage = async ({ contentOverride = null, targetUserId = null } = {}) => {
+  const sendMessage = async ({ contentOverride = null, targetUserId = null, targetGroupId = null } = {}) => {
+    console.log("📤 Sending message — mode:", messageMode);
+  
     const content = (contentOverride || newMessage || "").trim();
     if (!content) {
       setError("Message cannot be empty.");
@@ -215,174 +251,270 @@ const Messages = () => {
   
     const sender = userId;
   
-    if (messageMode === "role") {
-      const role = selectedUser?.role;
-      const groupName = role.charAt(0).toUpperCase() + role.slice(1) + "s";
-      let group = dummyData.groups.find((g) => g.name === groupName);
-  
-      if (!group) {
-        const newId = dummyData.groups.length + 1;
-        group = { id: newId, name: groupName };
-        dummyData.groups.push(group);
-  
-        dummyUsers.forEach((user) => {
-          if (user.role === role) {
-            dummyData.group_members.push({
-              group_id: newId,
-              user_id: user.user_id
-            });
-          }
+    // ✅ CASE 1: Reply to an existing group
+    if (targetGroupId) {
+      try {
+        await axios.post("/messages/group", {
+          sender,
+          content,
+          group_id: targetGroupId
         });
+  
+        await fetchMessages();  // 🔄 refresh from server
+  
+        if (contentOverride) {
+          setReplyMessages((prev) => ({ ...prev, [`group-${targetGroupId}`]: "" }));
+        } else {
+          setNewMessage("");
+          setSelectedUser(null);
+        }
+  
+        return;
+      } catch (err) {
+        console.error("❌ Failed to send group reply:", err);
+        setError("Could not send group reply.");
+        return;
+      }
+    }
+  
+    // ✅ CASE 2: Role-based message
+    // if (messageMode === "role") {
+    //     const role = selectedRole;
+    //     if (!role) {
+    //       setError("Please select a role.");
+    //       return;
+    //     }
+
+    //   console.log("Role: ", role);
+  
+    //   const groupName = role.charAt(0).toUpperCase() + role.slice(1) + "s";
+  
+    //   try {
+    //     // ✅ 1. Check if group exists
+    //     const existingGroupRes = await axios.get(`/api/groups/name/${groupName}`, {
+    //       headers: { Authorization: `Bearer ${token}` }
+    //     });
+      
+    //     // ✅ 2. Always fetch users with this role (regardless of group existence)
+    //     const userRes = await axios.get(`/api/users/rolesearch?role=${role}`, {
+    //       headers: { Authorization: `Bearer ${token}` }
+    //     });
+      
+    //     let members = userRes.data.users || [];
+    //     //let members = [];
+
+    //     console.log("📦 Members to use (from database):", members);
+      
+    //     // ✅ Always include sender
+    //     if (!members.some((u) => u.user_id === userId)) {
+    //       members.push({ user_id: userId });
+    //     }
+      
+    //     console.log("📦 Members to use (after adding sender):", members);
+  
+    //     let group_id;
+
+    //     if (existingGroupRes.data?.id) {
+    //         // ✅ Reuse existing group
+    //         group_id = existingGroupRes.data.id;
+
+    //         // 🔁 Update group members
+    //         await axios.put(`/api/groups/${group_id}/members`, {
+    //         members
+    //         }, {
+    //         headers: { Authorization: `Bearer ${token}` }
+    //         });
+    //     } else {
+    //         // ✅ Create new group
+    //         const groupRes = await axios.post("/api/groups", {
+    //         name: groupName,
+    //         members
+    //         }, {
+    //         headers: { Authorization: `Bearer ${token}` }
+    //         });
+
+    //         group_id = groupRes.data.id;
+    //     }
+  
+    //     await axios.post("/messages/group", {
+    //       sender,
+    //       content,
+    //       group_id
+    //     });
+  
+    //     await fetchMessages();  // 🔄 refresh from server
+  
+    //     if (contentOverride) {
+    //       setReplyMessages((prev) => ({ ...prev, [`group-${group_id}`]: "" }));
+    //     } else {
+    //       setNewMessage("");
+    //       setSelectedUser(null);
+    //     }
+  
+    //     return;
+    //   } catch (err) {
+    //     console.error("❌ Failed to send role-based group message:", err);
+    //     setError("Could not send role-based group message.");
+    //     return;
+    //   }
+    // } 
+    if (messageMode === "role") {
+        const role = selectedRole;
+        if (!role) {
+          setError("Please select a role.");
+          return;
+        }
+      
+        const groupName = role.charAt(0).toUpperCase() + role.slice(1) + "s";
+        let group_id = null;
+      
+        // ✅ STEP 1: Try to get the group by name
+        try {
+          const res = await axios.get(`/api/groups/name/${groupName}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          group_id = res.data?.id;
+        } catch (err) {
+          if (err.response?.status === 404) {
+            console.log("Group not found, will create it.");
+            group_id = null;
+          } else {
+            console.error("❌ Failed to check existing group:", err);
+            setError("Something went wrong checking group existence.");
+            return;
+          }
+        }
+      
+        // ✅ STEP 2: Fetch users with this role
+        try {
+          const userRes = await axios.get(`/api/users/rolesearch?role=${role}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+      
+          let members = userRes.data.users || [];
+      
+          // ✅ Always include the sender
+          if (!members.some(u => u.user_id === userId)) {
+            members.push({ user_id: userId });
+          }
+      
+          // ✅ STEP 3: Reuse or create group
+          if (group_id) {
+            await axios.put(`/api/groups/${group_id}/members`, {
+              members
+            }, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+          } else {
+            const groupRes = await axios.post("/api/groups", {
+              name: groupName,
+              members
+            }, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            group_id = groupRes.data.id;
+          }
+      
+          // ✅ STEP 4: Send message to group
+          await axios.post("/messages/group", {
+            sender: userId,
+            content,
+            group_id
+          });
+      
+          await fetchMessages();
+      
+          if (contentOverride) {
+            setReplyMessages((prev) => ({ ...prev, [`group-${group_id}`]: "" }));
+          } else {
+            setNewMessage("");
+            setSelectedUser(null);
+            setSelectedRole("");
+            setRoleSearchResults([]);
+          }
+      
+          return;
+        } catch (err) {
+          console.error("❌ Failed to send role-based message:", err);
+          setError("Could not send role-based message.");
+          return;
+        }
+      }      
+  
+    // ✅ CASE 3: Custom group message
+    if (messageMode === "group") {
+      const members = [...selectedUsers];
+      if (!members.some(u => u.user_id === userId)) {
+        members.push({ user_id: userId });
       }
   
-      const newGroupMessage = {
-        //id: Date.now(),
-        id: Math.floor(Math.random() * 1000000), // TODO change to date.now later
-        sender,
-        group_id: group.id,
-        content,
-        timestamp: new Date().toISOString(),
-        direction: "sent",
-        is_read: false
-      };
+      const groupName = newGroupName;
+      if (!groupName.trim()) {
+        setError("Please enter a group name.");
+        return;
+      }
   
-      dummyData.messages.push(newGroupMessage);
+      try {
+        const groupRes = await axios.post("/api/groups", {
+          name: groupName,
+          members
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
   
-      setThreads((prev) => {
-        const threadKey = `group-${group.id}`;
-        const index = prev.findIndex(t => t.userId === threadKey);
-        if (index !== -1) {
-          const updated = [...prev];
-          updated[index].messages.push(newGroupMessage);
-          return updated;
+        const group_id = groupRes.data.id;
+  
+        await axios.post("/messages/group", {
+          sender,
+          content,
+          group_id
+        });
+  
+        await fetchMessages();  // 🔄 refresh from server
+  
+        if (contentOverride) {
+          setReplyMessages((prev) => ({ ...prev, [`group-${group_id}`]: "" }));
         } else {
-          return [
-            ...prev,
-            {
-              userId: threadKey,
-              messages: [newGroupMessage],
-              isOpen: false,
-              unreadCount: 1
-            }
-          ];
+          setNewMessage("");
+          setSelectedUser(null);
+          setSelectedUsers([]); // ← THIS is the missing reset!
         }
+  
+        return;
+      } catch (err) {
+        console.error("❌ Failed to send group message:", err);
+        setError("Could not send group message.");
+        return;
+      }
+    }
+  
+    // ✅ CASE 4: Individual message
+    const receiver = targetUserId || selectedUser?.user_id;
+    if (!receiver) {
+      setError("No recipient selected for individual message.");
+      return;
+    }
+  
+    try {
+      await axios.post("/messages", {
+        sender,
+        receiver,
+        content
       });
-
+  
+      await fetchMessages();  // 🔄 refresh from server
+  
       if (contentOverride) {
         setReplyMessages((prev) => ({ ...prev, [receiver]: "" }));
       } else {
         setNewMessage("");
         setSelectedUser(null);
       }
-
-      return;
-  
-    //   setNewMessage("");
-    //   setSelectedUser(null);
-    //   return;
+    } catch (err) {
+      console.error("❌ Failed to send individual message:", err);
+      setError("Could not send individual message.");
     }
-  
-    if (messageMode === "group") {
-      if (selectedUsers.length === 0) {
-        setError("Please select at least one user.");
-        return;
-      }
-  
-      const groupMessages = selectedUsers.map((receiverId) => ({
-        //id: Date.now() + Math.random(),
-        id: Math.floor(Math.random() * 1000000), // TODO change to date.now later
-        sender,
-        receiver: receiverId,
-        content,
-        timestamp: new Date().toISOString(),
-        direction: "sent",
-        is_read: false
-      }));
-  
-      groupMessages.forEach((msg) => dummyData.messages.push(msg));
-  
-      setThreads((prev) => {
-        const updated = [...prev];
-        groupMessages.forEach((msg) => {
-          const index = updated.findIndex(t => t.userId === msg.receiver);
-          if (index !== -1) {
-            updated[index].messages.push(msg);
-          } else {
-            updated.push({
-              userId: msg.receiver,
-              messages: [msg],
-              isOpen: false,
-              unreadCount: 1
-            });
-          }
-        });
-        return updated;
-      });
-  
-    //   setNewMessage("");
-    //   setSelectedUsers([]);
-    //   return;
-
-    if (contentOverride) {
-        setReplyMessages((prev) => ({ ...prev, [receiver]: "" }));
-      } else {
-        setNewMessage("");
-        setSelectedUser(null);
-      }
-
-      return;
-    }
-//   else
-//   {
-    // Default case: individual message (includes reply logic!)
-    const receiver = targetUserId || selectedUser?.user_id;
-    if (!receiver) {
-      setError("No recipient selected.");
-      return;
-    }
-  
-    const newMsg = {
-      //id: Date.now(),
-      id: Math.floor(Math.random() * 1000000), // TODO change to date.now later
-      sender,
-      receiver,
-      content,
-      timestamp: new Date().toISOString(),
-      direction: "sent",
-      is_read: false
-    };
-  
-    dummyData.messages.push(newMsg);
-  
-    setThreads((prev) => {
-      const index = prev.findIndex(t => t.userId === receiver);
-      if (index !== -1) {
-        const updated = [...prev];
-        updated[index].messages.push(newMsg);
-        return updated;
-      } else {
-        return [
-          ...prev,
-          {
-            userId: receiver,
-            messages: [newMsg],
-            isOpen: false,
-            unreadCount: 1
-          }
-        ];
-      }
-    })  
-
-    if (contentOverride) {
-        setReplyMessages((prev) => ({ ...prev, [receiver]: "" }));
-      } else {
-        setNewMessage("");
-        setSelectedUser(null);
-      }
-    //}
-
-    //return;
-  }; 
+  };  
   
   const deleteMessage = async (id) => {
     try {
@@ -432,154 +564,19 @@ const Messages = () => {
     }
   };
 
+  const markMessageAsRead = async (messageId) => {
+    try {
+      await fetch(`/api/messages/${messageId}/read`, {
+        method: "PUT"
+      });
+    } catch (error) {
+      console.error("Failed to mark message as read:", error);
+    }
+  };  
+
   return (
     <Layout>
-      {
-        <div className="threads-container">
-          {threads.map((thread, index) => {
-            const isGroup = thread.userId.startsWith("group-");
-            return (
-            <div key={index} className="thread-block">
-              <div
-                className="thread-header"
-                onClick={async () => {
-                    const updated = [...threads];
-                    updated[index].isOpen = !updated[index].isOpen;
-                    setThreads(updated);
-                  
-                    // If opening thread, mark unread messages as read
-                    if (updated[index].isOpen) {
-                      const unreadMessages = threads[index].messages.filter(
-                        (msg) => msg.direction === "inbox" && !msg.is_read
-                      );
-                  
-                      for (const msg of unreadMessages) {
-                        try {
-                          await axios.put(`/api/messages/${msg.id}/read`, {}, {
-                            headers: { Authorization: `Bearer ${token}` }
-                          });
-                  
-                          // Optionally mark as read locally too
-                          //msg.is_read = true;
-                          const globalMsg = dummyData.messages.find(m => m.id === msg.id);
-                          if (globalMsg) globalMsg.is_read = true;
-                          updated[index].unreadCount -= 1;
-                        } catch (err) {
-                          console.error("Failed to mark message as read:", err);
-                        }
-                      }
-                    }
-                  }}                  
-                >
-                <strong>Conversation with:</strong>{" "}
-                {thread.userId.startsWith("group-")
-                ? dummyData.groups.find((g) => `group-${g.id}` === thread.userId)?.name || "Unnamed Group"
-                : thread.userId}
-                {thread.unreadCount > 0 && (
-                <span className="unread-badge"> {thread.unreadCount} new </span>
-                )}
-
-                <span style={{ fontSize: "0.8rem", color: "#555" }}>
-                  ({thread.messages.length} message
-                  {thread.messages.length !== 1 ? "s" : ""})
-                </span>
-              </div>
-
-              {thread.isOpen && (
-                <>
-                  <div className="thread-messages">
-                    {thread.messages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`bubble-message ${
-                          msg.direction === "sent"
-                            ? "sent-bubble"
-                            : "received-bubble"
-                        }`}
-                      >
-                        <div className="bubble-meta">
-                        {msg.direction === "inbox" && (
-                            <>
-                            From: {msg.sender}
-                            <br />
-                            </>
-                        )}
-                        <span className="bubble-timestamp">
-                            {new Date(msg.timestamp).toLocaleString()}
-                        </span>
-                        </div>
-                        <div className="bubble-content">
-                        {isGroup && (
-                            <div className="bubble-sender" style={{ fontWeight: "bold", marginBottom: "0.25rem" }}>
-                            {msg.sender}
-                            </div>
-                        )}
-
-                        {msg.content}
-                        </div>
-
-                        <div className="bubble-actions">
-                          <button onClick={() => deleteMessage(msg.id)}>
-                            🗑️
-                          </button>
-                          {msg.direction === "inbox" && (
-                            <>
-                              <button onClick={() => archiveMessage(msg.id)}>
-                                📥 Archive
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* reply box always at bottom of thread */}
-                  <div className="reply-box-below-thread">
-                    <textarea
-                      placeholder={`Reply to ${thread.userId}...`}
-                      value={replyMessages[thread.userId] || ""}
-                      onChange={(e) =>
-                        setReplyMessages((prev) => ({
-                          ...prev,
-                          [thread.userId]: e.target.value,
-                        }))
-                      }
-                    />
-                    <button onClick={() => sendMessage({
-                    contentOverride: replyMessages[thread.userId],
-                    targetUserId: thread.userId
-                    })}>
-                    Send
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-        );
-        })}
-        </div>
-      }
-      {selectedMessage && (
-        <div className="message-action-container">
-        <h3>Reply to {selectedMessage.sender}</h3>
-        <p>{selectedMessage.content}</p>
-        <textarea
-          placeholder="Type your reply..."
-          value={replyMessages[selectedMessage.sender] || ""}
-          onChange={(e) =>
-            setReplyMessages((prev) => ({
-              ...prev,
-              [selectedMessage.sender]: e.target.value,
-            }))
-          }
-        />
-        <button onClick={sendMessage}>Send Reply</button>
-        <button onClick={() => setSelectedMessage(null)}>Cancel</button>
-      </div>      
-      )}
-
-      <div className="message-input-container">
+        <div className="message-input-container">
         <h3>Send a Message</h3>
         <div className="message-mode-selector" style={{ marginBottom: "0.5rem" }}>
         <label htmlFor="message-mode" style={{ marginRight: "0.5rem" }}>
@@ -591,7 +588,7 @@ const Messages = () => {
         onChange={(e) => setMessageMode(e.target.value)}
         >
         <option value="individual">Individual</option>
-        <option value="role">By Role</option>
+        <option value="role">Role</option>
         <option value="group">Custom Group</option>
         </select>
         </div>
@@ -621,34 +618,96 @@ const Messages = () => {
                 />
                 {searchResults.length > 0 && (
                 <div className="search-results">
-                    {searchResults.map((user) => (
-                    <p key={user.user_id} onClick={() => selectUserForMessage(user)}>
-                        {user.name} (@{user.user_id})
+                    {searchResults
+                .filter((user) => user.user_id !== userId) // Don't allow adding yourself
+                .map((user) => (
+                    <p key={user.user_id} onClick={() => handleUserSelect(user)}>
+                    {user.name} (@{user.user_id})
                     </p>
-                    ))}
+                ))}
                     </div>
                 )}
             </div>
             )}
             {searchMode === "role" && (
             <div className="search-by-role">
-                <input
+                {/* <input
                 type="text"
                 placeholder="Search users by role..."
                 value={roleSearchQuery}
                 onChange={(e) => handleRoleSearch(e.target.value)}
-                />
-                {roleSearchResults.length > 0 && (
+                /> */}
+                <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                >
+                <option value="">-- Select a role --</option>
+                {availableRoles.map((role) => (
+                    <option key={role} value={role}>
+                    {role}
+                    </option>
+                ))}
+                </select>
+                {/* {roleSearchResults.length > 0 && (
                 <div className="role-search-results">
-                    {roleSearchResults.map((user) => (
-                    <p key={user.user_id} onClick={() => selectRoleUserForMessage(user)}>
+                    {/* {roleSearchResults.map((user) => (
+                    <p key={user.user_id} onClick={() => handleUserSelect(user)}>
                         {user.name} (@{user.user_id})
                     </p>
+                    ))} }
+                    <ul>
+                    {roleSearchResults.map((user) => (
+                        <li key={user.user_id}>
+                        {user.name} ({user.email})
+                        </li>
                     ))}
+                    </ul>
                     </div>
-                )}
+                )} */}
+                <div className="role-search-results">
+            <ul>
+                {roleSearchResults.map((user) => (
+                <li
+                    key={user.user_id}
+                    onClick={() => handleUserSelect(user)}
+                    style={{
+                    cursor: "pointer",
+                    fontWeight: selectedUsers.some((u) => u.user_id === user.user_id) ? "bold" : "normal",
+                    backgroundColor: selectedUsers.some((u) => u.user_id === user.user_id)
+                        ? "#e0f7fa"
+                        : "transparent",
+                    padding: "4px",
+                    borderRadius: "4px",
+                    }}
+                >
+                    {user.name} ({user.email})
+                </li>
+                ))}
+            </ul>
+            {/* {selectedUsers.length > 0 && (
+            <div className="selected-users">
+                <h4>Selected User:</h4>
+                <ul>
+                {selectedUsers.map((user) => (
+                    <li key={user.user_id}>
+                    {user.name} (@{user.user_id})
+                    </li>
+                ))}
+                </ul>
+            </div>
+            )} */}
+            </div>
             </div>
             )} 
+            {selectedUser && (
+            <div className="selected-user-display">
+                <strong>Selected:</strong> {selectedUser.name} (@{selectedUser.user_id})
+                <button onClick={() => setSelectedUser(null)} style={{ marginLeft: "0.5rem" }}>
+                ❌
+                </button>
+            </div>
+            )}
+
             {/* <input
             type="text"
             placeholder="Search users..."
@@ -669,7 +728,7 @@ const Messages = () => {
 
         {messageMode === "role" && (
         <div className="search-by-role">
-            <select
+            {/* <select
             id="role-target"
             value={selectedUser?.role || ""}
             onChange={(e) =>
@@ -680,12 +739,45 @@ const Messages = () => {
             <option value="admin">Admin</option>
             <option value="navigator">Navigator</option>
             <option value="user">User</option>
+            </select> */}
+            <select
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+            >
+            <option value="">-- Select a role --</option>
+            {availableRoles.map((role) => (
+                <option key={role} value={role}>
+                {role}
+                </option>
+            ))}
             </select>
+
+            <ul>
+            {roleSearchResults.map((user) => (
+                <li key={user.user_id}>
+                {user.name} ({user.email})
+                </li>
+            ))}
+            </ul>
+
         </div>
         )}
 
         {messageMode === "group" && (
         <div className="search-by-group" style={{ marginBottom: "1rem" }}>
+            <div style={{ marginBottom: "0.5rem" }}>
+            <label htmlFor="group-name" style={{ marginRight: "0.5rem" }}>
+                Group Name:
+            </label>
+            <input
+                type="text"
+                id="group-name"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Enter group name"
+                style={{ padding: "0.25rem", width: "60%" }}
+            />
+            </div>
             <div className="search-mode-selector" style={{ marginBottom: "0.5rem" }}>
                 <label htmlFor="message-mode" style={{ marginRight: "0.5rem" }}>
                     Search by: 
@@ -710,7 +802,7 @@ const Messages = () => {
                 {searchResults.length > 0 && (
                 <div className="search-results">
                     {searchResults.map((user) => (
-                    <p key={user.user_id} onClick={() => selectUserForMessage(user)}>
+                    <p key={user.user_id} onClick={() => handleUserSelect(user)}>
                         {user.name} (@{user.user_id})
                     </p>
                     ))}
@@ -720,21 +812,74 @@ const Messages = () => {
             )}
             {searchMode === "role" && (
             <div className="search-by-role">
-                <input
+                {/* <input
                 type="text"
                 placeholder="Search users to add by role..."
                 value={roleSearchQuery}
                 onChange={(e) => handleRoleSearch(e.target.value)}
-                />
-                {roleSearchResults.length > 0 && (
+                /> */}
+                <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                >
+                <option value="">-- Select a role --</option>
+                {availableRoles.map((role) => (
+                    <option key={role} value={role}>
+                    {role}
+                    </option>
+                ))}
+                </select>
+                {/* {roleSearchResults.length > 0 && (
                 <div className="role-search-results">
-                    {roleSearchResults.map((user) => (
-                    <p key={user.user_id} onClick={() => selectRoleUserForMessage(user)}>
+                    {/* {roleSearchResults.map((user) => (
+                    <p key={user.user_id} onClick={() => handleUserSelect(user)}>
                         {user.name} (@{user.user_id})
                     </p>
+                    ))} }
+                    <ul>
+                    {roleSearchResults.map((user) => (
+                        <li key={user.user_id}>
+                        {user.name} ({user.email})
+                        </li>
                     ))}
+                    </ul>
                     </div>
-                )}
+                )} */}
+                <div className="role-search-results">
+                <ul>
+                    {roleSearchResults.map((user) => (
+                    <li
+                        key={user.user_id}
+                        onClick={() => handleUserSelect(user)}
+                        style={{
+                        cursor: "pointer",
+                        fontWeight: selectedUsers.some((u) => u.user_id === user.user_id) ? "bold" : "normal",
+                        backgroundColor: selectedUsers.some((u) => u.user_id === user.user_id)
+                            ? "#e0f7fa"
+                            : "transparent",
+                        padding: "4px",
+                        borderRadius: "4px",
+                        }}
+                    >
+                        {user.name} ({user.email})
+                    </li>
+                    ))}
+                </ul>
+
+                {/* {selectedUsers.length > 0 && (
+                <div className="selected-users">
+                    <h4>Selected Users:</h4>
+                    <ul>
+                    {selectedUsers.map((user) => (
+                        <li key={user.user_id}>
+                        {user.name} (@{user.user_id})
+                        </li>
+                    ))}
+                    </ul>
+                </div>
+                )} */}
+
+                </div>
             </div>
             )} 
             {/* <input
@@ -780,62 +925,22 @@ const Messages = () => {
             <div style={{ marginTop: "0.5rem" }}>
                 <strong>Selected Users:</strong>
                 <ul>
-                {selectedUsers.map((userId) => {
-                    const user = dummyData.users.find((u) => u.user_id === userId);
-                    return (
-                    <li key={userId}>
-                        {user?.name} (@{userId}){" "}
-                        <button
-                        onClick={() =>
-                            setSelectedUsers(selectedUsers.filter((id) => id !== userId))
-                        }
-                        >
-                        ❌
-                        </button>
+                {selectedUsers.map((user) => (
+                    <li key={user.user_id}>
+                    {user.name} (@{user.user_id})
+                    <button onClick={() =>
+                    setSelectedUsers(selectedUsers.filter((u) => u.user_id !== user.user_id))}>
+                    ❌
+                    </button>
                     </li>
-                    );
-                })}
+                    )
+                )}
                 </ul>
             </div>
             )}
         </div>
+        
         )}
-        {/* <div className="search-section">
-            <div className="search-by-user">
-                <input
-                type="text"
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                />
-                {searchResults.length > 0 && (
-                <div className="search-results">
-                    {searchResults.map((user) => (
-                    <p key={user.user_id} onClick={() => selectUserForMessage(user)}>
-                        {user.name} (@{user.user_id})
-                    </p>
-                    ))}
-                    </div>
-                )}
-            </div>
-            <div className="search-by-role">
-                <input
-                type="text"
-                placeholder="Search users by role..."
-                value={roleSearchQuery}
-                onChange={(e) => handleRoleSearch(e.target.value)}
-                />
-                {roleSearchResults.length > 0 && (
-                <div className="role-search-results">
-                    {roleSearchResults.map((user) => (
-                    <p key={user.user_id} onClick={() => selectRoleUserForMessage(user)}>
-                        {user.name} (@{user.user_id})
-                    </p>
-                    ))}
-                    </div>
-                )}
-            </div>
-        </div> */}
         <div className="comm-method-selector">
           <label htmlFor="method">Method: </label>
           <select
@@ -858,6 +963,176 @@ const Messages = () => {
         />
         <button onClick={sendMessage}>Send</button>
       </div>
+      <hr style={{ marginTop: "1rem", marginBottom: "1rem", borderColor: "#ccc" }} />
+      {
+        <div className="threads-container">
+          {threads.map((thread, index) => {
+            const isGroup = thread.userId.startsWith("group-");
+            return (
+            <div key={index} className="thread-block">
+              <div
+                className="thread-header"
+                onClick={async () => {
+                    const updated = [...threads];
+                    updated[index].isOpen = !updated[index].isOpen;
+                    setThreads(updated);
+                  
+                    // If opening thread, mark unread messages as read
+                    if (updated[index].isOpen) {
+                      const unreadMessages = threads[index].messages.filter(
+                        (msg) => msg.direction === "inbox" && !msg.is_read
+                      );
+                  
+                      for (const msg of unreadMessages) {
+                        try {
+                          await axios.put(`/api/messages/${msg.id}/read`, {}, {
+                            headers: { Authorization: `Bearer ${token}` }
+                          });
+                      
+                          // ✅ Update it locally
+                          const target = updated[index].messages.find(m => m.id === msg.id);
+                          if (target) target.is_read = true;
+                      
+                          updated[index].unreadCount -= 1;
+                        } catch (err) {
+                          console.error("Failed to mark message as read:", err);
+                        }
+                      }                      
+                    }
+                  }}                  
+                >
+                <strong>Conversation with:</strong>{" "}
+                {thread.userId.startsWith("group-")
+                ? groupMap[thread.userId] || "Unnamed Group"
+                : thread.userId}
+                {thread.unreadCount > 0 && (
+                <span className="unread-badge"> {thread.unreadCount} new </span>
+                )}
+
+                <span style={{ fontSize: "0.8rem", color: "#555" }}>
+                  ({thread.messages.length} message
+                  {thread.messages.length !== 1 ? "s" : ""})
+                </span>
+              </div>
+
+              {thread.isOpen && (
+                <>
+                  <div className="thread-messages">
+                    {thread.messages.map((msg) => {
+                        if (msg.direction === "inbox" && !msg.is_read) {
+                            markMessageAsRead(msg.id);
+                          }
+
+                        return(
+                      <div
+                        key={msg.id}
+                        className={`bubble-message ${
+                          msg.direction === "sent"
+                            ? "sent-bubble"
+                            : "received-bubble"
+                        }`}
+                      >
+                        <div className="bubble-meta">
+                        {msg.direction === "inbox" && (
+                            <>
+                            From: {msg.sender}
+                            <br />
+                            </>
+                        )}
+                        <span className="bubble-timestamp">
+                            {new Date(msg.timestamp).toLocaleString()}
+                        </span>
+                        </div>
+                        <div className="bubble-content">
+                        {isGroup && (
+                            <div className="bubble-sender" style={{ fontWeight: "bold", marginBottom: "0.25rem" }}>
+                            {msg.sender}
+                            </div>
+                        )}
+
+                        {msg.content}
+                        </div>
+
+                        <div className="bubble-actions">
+                          <button onClick={() => deleteMessage(msg.id)}>
+                            🗑️
+                          </button>
+                          {msg.direction === "inbox" && (
+                            <>
+                              <button onClick={() => archiveMessage(msg.id)}>
+                                📥 Archive
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )})}
+                  </div>
+
+                  {/* reply box always at bottom of thread */}
+                  <div className="reply-box-below-thread">
+                    <textarea
+                      placeholder={`Reply to ${thread.userId}...`}
+                      value={replyMessages[thread.userId] || ""}
+                      onChange={(e) =>
+                        setReplyMessages((prev) => ({
+                          ...prev,
+                          [thread.userId]: e.target.value,
+                        }))
+                      }
+                    />
+                    <button
+                    onClick={() => {
+                        const replyContent = replyMessages[thread.userId];
+                        const isGroup = thread.userId.startsWith("group-");
+
+                        if (isGroup) {
+                        const groupId = parseInt(thread.userId.split("-")[1], 10);
+                        sendMessage({
+                            contentOverride: replyContent,
+                            targetGroupId: groupId
+                        });
+                        } else {
+                        sendMessage({
+                            contentOverride: replyContent,
+                            targetUserId: thread.userId
+                        });
+                        }
+
+                        setSelectedUsers([]);
+                        setNewMessage("");
+                    }}
+                    >
+                    Reply
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+        );
+        })}
+        </div>
+      }
+      {selectedMessage && (
+        <div className="message-action-container">
+        <h3>Reply to {selectedMessage.sender}</h3>
+        <p>{selectedMessage.content}</p>
+        <textarea
+          placeholder="Type your reply..."
+          value={replyMessages[selectedMessage.sender] || ""}
+          onChange={(e) =>
+            setReplyMessages((prev) => ({
+              ...prev,
+              [selectedMessage.sender]: e.target.value,
+            }))
+          }
+        />
+        <button onClick={sendMessage}>Send Reply</button>
+        <button onClick={() => setSelectedMessage(null)}>Cancel</button>
+      </div>      
+      )}
+
+      
     </Layout>
   );
 };
