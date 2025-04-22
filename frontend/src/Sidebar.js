@@ -13,7 +13,7 @@ const Sidebar = () => {
       try {
         const token = localStorage.getItem("token");
 
-        // ✅ Relative path so Nginx can forward to backend
+        // Relative path so Nginx can forward to backend
         const unreadRes = await axios.get("/messages/unread-count", {
           headers: { Authorization: `Bearer ${token}` },
         });

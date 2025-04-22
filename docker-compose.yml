@@ -1,29 +1,36 @@
+version: '3.8'
+
 services:
   frontend:
+    
     build:
       context: ./frontend
     ports:
-      - "3000:3000" # Access frontend via http://localhost:3000
+      - "3000:3000"  # Access frontend via http://localhost:3000
+    stdin_open: true
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    environment:
-      - CHOKIDAR_USEPOLLING=true
+    working_dir: /app
     networks:
       - app_network
+    environment:
+      - CHOKIDAR_USEPOLLING=true
 
   backend:
     build:
       context: ./backend
     ports:
-      - "5000:5000" # Internal + external
+      - "5000:5000"  # Internal + external
     networks:
       - app_network
+    environment:
+      - CHOKIDAR_USEPOLLING=true
 
   nginx:
     image: nginx:latest
     ports:
-      - "80:80" # So you can call http://localhost/api/*
+      - "80:80"  # So you can call http://localhost/api/*
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
