@@ -155,11 +155,6 @@ app.get("/messages/inbox", async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const user_id = decoded.user_id;
 
-    // const messagesQuery = await pool.query(
-    //   "SELECT id, sender, content, timestamp FROM messages WHERE receiver = $1 ORDER BY timestamp DESC",
-    //   [user_id]
-    // );
-
     const messagesQuery = await pool.query(
         `SELECT id, sender, receiver, group_id, content, timestamp, is_read 
          FROM messages 
@@ -278,7 +273,6 @@ app.get("/api/users/search", async (req, res) => {
 });
 
 app.get("/api/users/rolesearch", async (req, res) => {
-    //console.log("Role search hit with query:", req.query.query); // <--- Add this
     const { role } = req.query;
 
     try {
@@ -469,23 +463,6 @@ app.post("/api/organizations", async (req, res) => {
     res.status(500).json({ error: "Error creating organization" });
   }
 });
-
-// app.get("/messages/unread-count", async (req, res) => {
-//   const token = req.headers.authorization?.split(" ")[1];
-//   if (!token) return res.status(401).json({ error: "Unauthorized" });
-
-//   try {
-//     const decoded = jwt.verify(token, JWT_SECRET);
-//     const result = await pool.query(
-//       "SELECT COUNT(*) FROM messages WHERE receiver = $1 AND is_read = FALSE",
-//       [decoded.user_id]
-//     );
-//     res.json({ count: parseInt(result.rows[0].count, 10) });
-//   } catch (error) {
-//     console.error("Unread count error:", error);
-//     res.status(500).json({ error: "Failed to fetch unread count" });
-//   }
-// });
 
 app.get("/messages/unread-count", async (req, res) => {
     try {
